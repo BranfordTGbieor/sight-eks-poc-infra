@@ -42,7 +42,7 @@ spec:
       volumes:
         - name: dagster-config
           configMap:
-            name: {{ include "hydrosat-dagster.fullname" . }}-config
+            name: {{ include "hydrosat-dagster.fullname" . }}-migrate-config
             items:
               - key: dagster.yaml
                 path: dagster.yaml
