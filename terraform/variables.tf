@@ -134,8 +134,8 @@ variable "dagster_service_account_name" {
   default     = "hydrosat-dagster"
 }
 
-variable "grafana_cloud_logs_secret_arn" {
-  description = "Optional AWS Secrets Manager ARN containing Grafana Cloud Loki endpoint and credentials."
+variable "grafana_cloud_secret_arn" {
+  description = "Optional AWS Secrets Manager ARN containing Grafana Cloud logs and metrics endpoints and credentials."
   type        = string
   default     = ""
 }

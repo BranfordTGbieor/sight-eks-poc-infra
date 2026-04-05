@@ -217,7 +217,7 @@ Relevant resources:
 
 - `gitops/external-secrets/cluster-secret-store.yaml`
 - `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/grafana-cloud-logs-external-secret.yaml`
+- `gitops/external-secrets/grafana-cloud-external-secret.yaml`
 
 This is materially better than embedding Grafana Cloud endpoints or tokens directly in Helm values or committing them into Git.
 
@@ -325,7 +325,7 @@ Useful optional inputs:
 
 - `extra_tags` for organization-specific tagging
 - `cluster_endpoint_public_access_cidrs` to narrow API exposure
-- `grafana_cloud_logs_secret_arn` to scope External Secrets access to the Grafana Cloud secret
+- `grafana_cloud_secret_arn` to scope External Secrets access to the Grafana Cloud secret
 
 ### 4. Configure `kubectl`
 
@@ -354,14 +354,17 @@ Example Grafana Cloud logs secret payload:
 {
   "logsUrl": "https://logs-prod-<stack>.grafana.net/loki/api/v1/push",
   "logsUsername": "<stack-user-or-tenant-id>",
-  "logsPassword": "<grafana-cloud-access-policy-token>"
+  "logsPassword": "<grafana-cloud-access-policy-token>",
+  "metricsUrl": "https://prometheus-prod-<stack>.grafana.net/api/prom/push",
+  "metricsUsername": "<stack-user-or-tenant-id>",
+  "metricsPassword": "<grafana-cloud-access-policy-token>"
 }
 ```
 
 To avoid re-editing ARNs and Terraform outputs after every fresh apply, use:
 
 ```bash
-GRAFANA_CLOUD_LOGS_SECRET_ARN=arn:aws:secretsmanager:... \
+GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
 ./scripts/sync-live-config.sh
 ```
 
@@ -531,14 +534,14 @@ Files refreshed by `./scripts/sync-live-config.sh`:
 - `gitops/argocd/values/external-secrets-values.yaml`
 - `gitops/external-secrets/cluster-secret-store.yaml`
 - `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/grafana-cloud-logs-external-secret.yaml`
+- `gitops/external-secrets/grafana-cloud-external-secret.yaml`
 - `gitops/argocd/values/alloy-values.yaml`
 - `helm/dagster/values-gitops.yaml`
 
 Inputs required by the sync script:
 
 1. current Terraform outputs from the applied environment
-2. `GRAFANA_CLOUD_LOGS_SECRET_ARN`
+2. `GRAFANA_CLOUD_SECRET_ARN`
 
 The only intentionally generic chart placeholder left after that is:
 

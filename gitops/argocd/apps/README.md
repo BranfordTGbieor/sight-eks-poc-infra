@@ -7,7 +7,7 @@ Bootstrap model:
 1. Install Argo CD in the same EKS cluster for demo simplicity.
 2. Make sure the Grafana Cloud AWS Secrets Manager secret exists.
 3. Run `./scripts/sync-live-config.sh` from the repo root with:
-   - `GRAFANA_CLOUD_LOGS_SECRET_ARN`
+   - `GRAFANA_CLOUD_SECRET_ARN`
 4. Review and commit the generated changes.
 5. Apply `gitops/argocd/bootstrap/root-application.yaml`.
 

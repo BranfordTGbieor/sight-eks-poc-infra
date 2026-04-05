@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF_DIR="${ROOT_DIR}/terraform"
 
 INFRA_REPO_URL="${INFRA_REPO_URL:-https://github.com/BranfordTGbieor/hydrosat-infra.git}"
-GRAFANA_CLOUD_LOGS_SECRET_ARN="${GRAFANA_CLOUD_LOGS_SECRET_ARN:?Set GRAFANA_CLOUD_LOGS_SECRET_ARN to the AWS Secrets Manager ARN for Grafana Cloud logs credentials.}"
+GRAFANA_CLOUD_SECRET_ARN="${GRAFANA_CLOUD_SECRET_ARN:?Set GRAFANA_CLOUD_SECRET_ARN to the AWS Secrets Manager ARN for Grafana Cloud observability credentials.}"
 
 tf_output() {
   terraform -chdir="${TF_DIR}" output -raw "$1"
@@ -48,8 +48,8 @@ perl -0pi -e "s#key: (?:REPLACE_WITH_RDS_MASTER_SECRET_ARN|arn:aws:secretsmanage
 perl -0pi -e "s#host: \".*\"#host: \"${RDS_ADDRESS}\"#g; s#url: \"postgresql://\\{\\{ \\.username \\}\\}:\\{\\{ \\.password \\}\\}@[^:]+:5432/dagster\"#url: \"postgresql://{{ .username }}:{{ .password }}@${RDS_ADDRESS}:5432/dagster\"#g" \
   "${ROOT_DIR}/gitops/external-secrets/dagster-db-external-secret.yaml"
 
-perl -0pi -e "s#key: (?:REPLACE_WITH_GRAFANA_CLOUD_LOGS_SECRET_ARN|arn:aws:secretsmanager:[^\\n]+hydrosat/dev/grafana-cloud[^\\n]*)#key: ${GRAFANA_CLOUD_LOGS_SECRET_ARN}#g" \
-  "${ROOT_DIR}/gitops/external-secrets/grafana-cloud-logs-external-secret.yaml"
+perl -0pi -e "s#key: (?:REPLACE_WITH_GRAFANA_CLOUD_SECRET_ARN|arn:aws:secretsmanager:[^\\n]+hydrosat/dev/grafana-cloud[^\\n]*)#key: ${GRAFANA_CLOUD_SECRET_ARN}#g" \
+  "${ROOT_DIR}/gitops/external-secrets/grafana-cloud-external-secret.yaml"
 
 perl -0pi -e "s#cluster = \"(?:REPLACE_WITH_CLUSTER_NAME|[^\"]+)\"#cluster = \"${CLUSTER_NAME}\"#g" \
   "${ROOT_DIR}/gitops/argocd/values/alloy-values.yaml"

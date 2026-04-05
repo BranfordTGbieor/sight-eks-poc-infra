@@ -82,3 +82,25 @@ alloy:
           cluster = "REPLACE_WITH_CLUSTER_NAME",
         }
       }
+
+      prometheus.exporter.self "alloy" {}
+
+      prometheus.scrape "alloy" {
+        targets    = prometheus.exporter.self.alloy.targets
+        forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      }
+
+      prometheus.remote_write "grafana_cloud" {
+        endpoint {
+          url = sys.env("GRAFANA_CLOUD_METRICS_URL")
+
+          basic_auth {
+            username = sys.env("GRAFANA_CLOUD_METRICS_USERNAME")
+            password = sys.env("GRAFANA_CLOUD_METRICS_PASSWORD")
+          }
+        }
+
+        external_labels = {
+          cluster = "REPLACE_WITH_CLUSTER_NAME",
+        }
+      }

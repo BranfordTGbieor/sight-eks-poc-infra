@@ -31,7 +31,7 @@ You need these values before starting:
   - `rds_address`
   - `rds_master_secret_arn`
 - AWS Secrets Manager secrets:
-  - Grafana Cloud logs secret ARN
+  - Grafana Cloud observability secret ARN
 
 Recommended commands:
 
@@ -50,7 +50,7 @@ aws secretsmanager describe-secret \
 Populate the GitOps manifests with the current environment values:
 
 ```bash
-export GRAFANA_CLOUD_LOGS_SECRET_ARN=arn:aws:secretsmanager:...
+export GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:...
 ./scripts/sync-live-config.sh
 git diff
 ```
@@ -174,7 +174,7 @@ kubectl patch job hydrosat-dagster-migrate -n dagster --type=json -p='[{"op":"re
 kubectl annotate application hydrosat-dagster -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-## 8. Grafana Cloud Log Shipping Checks
+## 8. Grafana Cloud Observability Checks
 
 ```bash
 kubectl get applications -n argocd
@@ -186,6 +186,7 @@ Expected result:
 
 - Alloy is running
 - the Grafana Cloud credentials secret exists in `monitoring`
+- Alloy is exporting its own metrics over Prometheus remote write
 
 Useful spot checks:
 
