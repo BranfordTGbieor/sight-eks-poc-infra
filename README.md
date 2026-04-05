@@ -44,7 +44,7 @@ This implementation aims to go beyond the minimum assignment by showing a defens
 - Argo CD owns steady-state Kubernetes delivery
 - Helm packages the Dagster runtime
 - External Secrets syncs runtime secrets from AWS Secrets Manager
-- Alertmanager is the central notification control plane for both platform and Dagster job-failure alerts
+- Grafana Cloud is the default observability backend for the lighter demo profile
 
 The platform remains intentionally demo-scoped. Argo CD and the observability stack run in the same cluster to keep bootstrap complexity and cloud cost under control, while still leaving a clear path toward a fuller production setup.
 
@@ -209,7 +209,7 @@ That keeps the demo bootstrap cheaper and simpler while leaving room to add Graf
 AWS Secrets Manager is the source of truth for:
 
 - Dagster database credentials
-- Grafana Cloud logs credentials
+- Grafana Cloud logs and metrics credentials
 
 External Secrets Operator syncs those values into Kubernetes Secrets.
 
@@ -239,16 +239,15 @@ The paired `hydrosat-data` repo now uses Python for `raw` ingestion and dbt-back
 Secret rotation behavior is explicit:
 
 - Dagster DB secret refresh interval: `1h`
-- Alertmanager config refresh interval: `15m`
+- Grafana Cloud secret refresh interval: `15m`
 
 Operational model:
 
 1. Rotate or update the value in AWS Secrets Manager.
 2. Wait for External Secrets to reconcile the Kubernetes Secret.
-3. Restart Dagster workloads if the rotated value affects environment-sourced database credentials.
-4. Validate application health and alert delivery.
-
-Alertmanager notifier changes do not require Git edits because the config is secret-backed.
+3. Restart Alloy workloads if Grafana Cloud credentials changed, because the credentials are loaded through `envFrom`.
+4. Restart Dagster workloads if the rotated value affects environment-sourced database credentials.
+5. Validate application health and observability export.
 
 ### Networking and Access
 
@@ -665,7 +664,7 @@ Why I would revisit it later:
 These are deliberate trade-offs for the exercise:
 
 - same-cluster Argo CD rather than separate management cluster
-- same-cluster observability stack rather than managed SaaS
+- Grafana Cloud rather than a heavier self-hosted LGTM stack by default
 - single NAT gateway rather than fully redundant NAT per AZ
 - public Dagster UI exposure via `LoadBalancer` for easier review
 

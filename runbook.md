@@ -118,7 +118,7 @@ Expected steady-state target:
 
 - `hydrosat-root` is `Synced` and `Healthy`
 - External Secrets resources are `Ready`
-- Dagster pods are running in `dagster`
+- Dagster webserver and user-code are running in `dagster`
 - Alloy is running in `monitoring`
 
 ## 6. External Secrets Checks
@@ -147,6 +147,9 @@ Known failure patterns:
   - External Secrets IRSA policy does not include the current secret ARN
 - `SecretSyncedError`
   - stale ARN or wrong secret shape
+- `401 Unauthorized`
+  - Grafana Cloud token scope is wrong
+  - use `logs:write` and `metrics:write`, then restart Alloy after the secret refresh
 
 ## 7. Dagster Checks
 
@@ -174,6 +177,19 @@ kubectl patch job hydrosat-dagster-migrate -n dagster --type=json -p='[{"op":"re
 kubectl annotate application hydrosat-dagster -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
+Known Dagster failure patterns:
+
+- the migration job can fail if the DB URL in `hydrosat-dagster-db` is stale
+- force a refresh on the ExternalSecret before retrying the Dagster app:
+
+```bash
+kubectl annotate externalsecret hydrosat-dagster-db -n dagster force-sync=$(date +%s) --overwrite
+```
+
+- on the current small demo cluster, the Dagster daemon can still remain `Pending` due to:
+  - `Too many pods`
+  - `Insufficient memory`
+
 ## 8. Grafana Cloud Observability Checks
 
 ```bash
@@ -193,6 +209,13 @@ Useful spot checks:
 ```bash
 kubectl logs -n monitoring -l app.kubernetes.io/instance=hydrosat-alloy --all-containers --tail=200
 kubectl get pods -n dagster
+```
+
+If you rotate the Grafana Cloud secret value:
+
+```bash
+kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring force-sync=$(date +%s) --overwrite
+kubectl rollout restart daemonset/hydrosat-alloy -n monitoring
 ```
 
 ## 9. Known Recovery Steps

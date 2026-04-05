@@ -81,14 +81,8 @@ jobs:
       - name: Render Dagster chart
         run: helm template hydrosat-dagster ./helm/dagster >/tmp/hydrosat-dagster-rendered.yaml
 
-      - name: Render monitoring charts
+      - name: Render observability charts
         run: |
-          helm template hydrosat-monitoring prometheus-community/kube-prometheus-stack \
-            --version 82.16.0 \
-            -f gitops/argocd/values/kube-prometheus-stack-values.yaml >/tmp/hydrosat-monitoring-rendered.yaml
-          helm template hydrosat-loki grafana/loki \
-            --version 6.53.0 \
-            -f gitops/argocd/values/loki-values.yaml >/tmp/hydrosat-loki-rendered.yaml
           helm template hydrosat-alloy grafana/alloy \
             --version 1.5.3 \
             -f gitops/argocd/values/alloy-values.yaml >/tmp/hydrosat-alloy-rendered.yaml
