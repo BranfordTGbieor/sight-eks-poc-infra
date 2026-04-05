@@ -61,7 +61,7 @@ alloy:
       loki.process "pods" {
         stage.static_labels {
           values = {
-            cluster = "REPLACE_WITH_CLUSTER_NAME",
+            cluster = "hydrosat-dev-eks",
           }
         }
 
@@ -79,7 +79,7 @@ alloy:
         }
 
         external_labels = {
-          cluster = "REPLACE_WITH_CLUSTER_NAME",
+          cluster = "hydrosat-dev-eks",
         }
       }
 
@@ -101,6 +101,6 @@ alloy:
         }
 
         external_labels = {
-          cluster = "REPLACE_WITH_CLUSTER_NAME",
+          cluster = "hydrosat-dev-eks",
         }
       }
