@@ -11,7 +11,7 @@ dataLake:
   prefix: hydrosat
 
 alerting:
-  alertmanagerUrl: http://hydrosat-monitoring-alertmanager.monitoring.svc.cluster.local:9093/api/v2/alerts
+  alertmanagerUrl: ""
 
 database:
   host: hydrosat-dev-dagster.cunysm608k0x.us-east-1.rds.amazonaws.com

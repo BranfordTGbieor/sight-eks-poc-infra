@@ -11,6 +11,9 @@ controller:
       memory: 256Mi
 
 alloy:
+  envFrom:
+    - secretRef:
+        name: hydrosat-grafana-cloud
   mounts:
     varlog: true
     dockercontainers: true
@@ -58,19 +61,24 @@ alloy:
       loki.process "pods" {
         stage.static_labels {
           values = {
-            cluster = "hydrosat-eks",
+            cluster = "REPLACE_WITH_CLUSTER_NAME",
           }
         }
 
-        forward_to = [loki.write.default.receiver]
+        forward_to = [loki.write.grafana_cloud.receiver]
       }
 
-      loki.write "default" {
+      loki.write "grafana_cloud" {
         endpoint {
-          url = "http://hydrosat-loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+          url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+          basic_auth {
+            username = sys.env("GRAFANA_CLOUD_LOKI_USERNAME")
+            password = sys.env("GRAFANA_CLOUD_LOKI_PASSWORD")
+          }
         }
 
         external_labels = {
-          cluster = "hydrosat-eks",
+          cluster = "REPLACE_WITH_CLUSTER_NAME",
         }
       }

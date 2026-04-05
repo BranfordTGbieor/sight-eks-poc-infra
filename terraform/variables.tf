@@ -134,14 +134,8 @@ variable "dagster_service_account_name" {
   default     = "hydrosat-dagster"
 }
 
-variable "alertmanager_notifier_secret_arn" {
-  description = "Optional AWS Secrets Manager ARN containing Alertmanager notifier settings."
-  type        = string
-  default     = ""
-}
-
-variable "grafana_admin_secret_arn" {
-  description = "Optional AWS Secrets Manager ARN containing Grafana admin credentials."
+variable "grafana_cloud_logs_secret_arn" {
+  description = "Optional AWS Secrets Manager ARN containing Grafana Cloud Loki endpoint and credentials."
   type        = string
   default     = ""
 }

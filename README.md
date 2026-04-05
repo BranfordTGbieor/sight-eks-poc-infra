@@ -62,7 +62,7 @@ This repo is the infrastructure half of a split-repo model:
 | Delivery | Argo CD | GitOps as the steady-state deployment path |
 | Secrets | AWS Secrets Manager + External Secrets | Keeps credentials out of Git and Helm values |
 | Data Lake | S3-backed raw, staging, and curated layers | Supports the layered Dagster sample pipeline and future dbt work |
-| Observability | Prometheus, Alertmanager, Grafana, Loki, Alloy | Covers metrics, logs, dashboards, and alert routing in one stack |
+| Observability | Grafana Cloud + Alloy | Keeps demo observability lightweight while preserving centralized logs |
 | CI/CD | GitHub Actions | Separate infra validation and governed Terraform delivery |
 
 ## Repository Layout
@@ -114,24 +114,17 @@ flowchart TD
   EKS --> Daemon[Dagster Daemon]
   EKS --> UserCode[Dagster User Code]
   EKS --> ArgoCD[Argo CD]
-  EKS --> Prom[Prometheus]
-  EKS --> AM[Alertmanager]
-  EKS --> Grafana[Grafana]
-  EKS --> Loki[Loki]
   EKS --> Alloy[Alloy]
   EKS --> ESO[External Secrets]
+  Alloy --> GC[Grafana Cloud Loki]
 
   Web --> UserCode
   Daemon --> UserCode
   Web --> RDS
   Daemon --> RDS
   UserCode --> Lake
-  Daemon -->|run failure alert| AM
-  Prom --> AM
-  Grafana --> Prom
-  Grafana --> Loki
-  Alloy --> Loki
   ESO --> RDS
+  ESO --> GC
   IMG --> EKS
 ```
 
@@ -179,8 +172,6 @@ Key manifests:
 - `gitops/argocd/bootstrap/root-application.yaml`
 - `gitops/argocd/apps/project.yaml`
 - `gitops/argocd/apps/hydrosat-dagster.yaml`
-- `gitops/argocd/apps/monitoring-kube-prometheus-stack.yaml`
-- `gitops/argocd/apps/monitoring-loki.yaml`
 - `gitops/argocd/apps/monitoring-alloy.yaml`
 - `gitops/argocd/apps/external-secrets-operator.yaml`
 - `gitops/argocd/apps/external-secrets-resources.yaml`
@@ -195,39 +186,30 @@ For a larger estate, I would separate the management plane from workload cluster
 
 ### Observability
 
-The platform observability stack is GitOps-managed and in-cluster:
+The default observability path is now intentionally lighter:
 
 | Concern | Tool |
 | --- | --- |
-| Metrics | Prometheus |
-| Alert routing | Alertmanager |
-| Dashboards | Grafana |
-| Log storage | Loki |
 | Log collection | Alloy |
+| Log storage and search | Grafana Cloud Loki |
+| Dashboards and exploration | Grafana Cloud |
 
-This matches the tooling direction mentioned during interview discussions and gives a stronger story than relying only on application-native alerting.
+This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
 
 ## Operational Decisions
 
 ### Job Failure Alerting
 
-Dagster remains the source of truth for job-failure semantics. The failure sensor posts alerts directly to Alertmanager, so both platform alerts and job alerts share one notification control plane.
+Dagster remains the source of truth for job-failure semantics. The chart still supports an Alertmanager URL, but the default GitOps profile leaves it blank so the platform can come up without the heavier in-cluster alerting stack.
 
-Alert flow:
-
-1. Dagster run fails.
-2. Dagster `run_failure_sensor` sends an alert to Alertmanager.
-3. Prometheus sends infrastructure and workload alerts to Alertmanager separately.
-4. Alertmanager routes notifications to Slack and optionally email.
-
-This avoids split-brain alerting between multiple notification systems.
+That keeps the demo bootstrap cheaper and simpler while leaving room to add Grafana Cloud alerting or a separate alerting path later.
 
 ### Secrets Management
 
 AWS Secrets Manager is the source of truth for:
 
 - Dagster database credentials
-- Alertmanager notifier configuration
+- Grafana Cloud logs credentials
 
 External Secrets Operator syncs those values into Kubernetes Secrets.
 
@@ -235,13 +217,9 @@ Relevant resources:
 
 - `gitops/external-secrets/cluster-secret-store.yaml`
 - `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/alertmanager-config-external-secret.yaml`
+- `gitops/external-secrets/grafana-cloud-logs-external-secret.yaml`
 
-This is materially better than:
-
-- embedding secrets in Helm values
-- manually creating Kubernetes secrets with `kubectl`
-- committing notifier configuration that contains credentials
+This is materially better than embedding Grafana Cloud endpoints or tokens directly in Helm values or committing them into Git.
 
 ### Data Lake Storage
 
@@ -347,7 +325,7 @@ Useful optional inputs:
 
 - `extra_tags` for organization-specific tagging
 - `cluster_endpoint_public_access_cidrs` to narrow API exposure
-- `alertmanager_notifier_secret_arn` to scope External Secrets access to the notifier secret
+- `grafana_cloud_logs_secret_arn` to scope External Secrets access to the Grafana Cloud secret
 
 ### 4. Configure `kubectl`
 
@@ -368,32 +346,22 @@ This infra repo consumes an explicit image repository and tag through the Helm c
 The GitOps flow expects:
 
 1. The RDS master secret created by Terraform.
-2. A separate secret for Alertmanager notification settings.
-3. A separate secret for Grafana admin credentials.
+2. A separate secret for Grafana Cloud Loki credentials.
 
-Example Slack-only Alertmanager secret payload:
-
-```json
-{
-  "slackWebhookUrl": "https://hooks.slack.com/services/...",
-  "slackChannel": "#hydrosat-alerts"
-}
-```
-
-Example Grafana admin secret payload:
+Example Grafana Cloud logs secret payload:
 
 ```json
 {
-  "adminUser": "admin",
-  "adminPassword": "replace-me"
+  "logsUrl": "https://logs-prod-<stack>.grafana.net/loki/api/v1/push",
+  "logsUsername": "<stack-user-or-tenant-id>",
+  "logsPassword": "<grafana-cloud-access-policy-token>"
 }
 ```
 
 To avoid re-editing ARNs and Terraform outputs after every fresh apply, use:
 
 ```bash
-ALERTMANAGER_SECRET_ARN=arn:aws:secretsmanager:... \
-GRAFANA_ADMIN_SECRET_ARN=arn:aws:secretsmanager:... \
+GRAFANA_CLOUD_LOGS_SECRET_ARN=arn:aws:secretsmanager:... \
 ./scripts/sync-live-config.sh
 ```
 
@@ -403,8 +371,8 @@ This is the preferred steady-state path.
 
 Before bootstrap:
 
-1. Ensure the Alertmanager and Grafana secrets exist in AWS Secrets Manager.
-2. Run `./scripts/sync-live-config.sh` with the two secret ARNs exported.
+1. Ensure the Grafana Cloud secret exists in AWS Secrets Manager.
+2. Run `./scripts/sync-live-config.sh` with the Grafana Cloud secret ARN exported.
 3. Review and commit the generated GitOps changes.
 
 Then apply the root application:
@@ -423,7 +391,6 @@ helm upgrade --install hydrosat-dagster ./helm/dagster \
   --create-namespace \
   --set image.repository="REPLACE_WITH_DAGSTER_IMAGE_REPOSITORY" \
   --set image.tag=latest \
-  --set alerting.alertmanagerUrl="http://hydrosat-monitoring-alertmanager.monitoring.svc.cluster.local:9093/api/v2/alerts" \
   --set database.secretName=hydrosat-dagster-db
 ```
 
@@ -453,16 +420,16 @@ The demo job and its run config live in the separate `hydrosat-data` repository.
 - run with `should_fail: false` to prove normal execution
 - run with `should_fail: true` to trigger controlled failure and alert routing
 
-### Alert Validation
+### Log Validation
 
 Validation flow:
 
 1. Confirm External Secrets is healthy.
 2. Confirm `hydrosat-dagster-db` exists in `dagster`.
-3. Confirm `hydrosat-alertmanager-config` exists in `monitoring`.
-4. Launch `hydrosat_demo_job` with `should_fail: true` from the Dagster UI or API.
-5. Confirm Dagster shows the failed run.
-6. Confirm Alertmanager receives and routes the alert.
+3. Confirm `hydrosat-grafana-cloud` exists in `monitoring`.
+4. Launch `hydrosat_demo_job` from the Dagster UI or API.
+5. Confirm Dagster pods emit logs locally.
+6. Confirm Alloy forwards those logs to Grafana Cloud.
 
 ### Local Verification
 
@@ -564,15 +531,14 @@ Files refreshed by `./scripts/sync-live-config.sh`:
 - `gitops/argocd/values/external-secrets-values.yaml`
 - `gitops/external-secrets/cluster-secret-store.yaml`
 - `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/alertmanager-config-external-secret.yaml`
-- `gitops/external-secrets/grafana-admin-external-secret.yaml`
+- `gitops/external-secrets/grafana-cloud-logs-external-secret.yaml`
+- `gitops/argocd/values/alloy-values.yaml`
 - `helm/dagster/values-gitops.yaml`
 
 Inputs required by the sync script:
 
 1. current Terraform outputs from the applied environment
-2. `ALERTMANAGER_SECRET_ARN`
-3. `GRAFANA_ADMIN_SECRET_ARN`
+2. `GRAFANA_CLOUD_LOGS_SECRET_ARN`
 
 The only intentionally generic chart placeholder left after that is:
 
@@ -616,9 +582,7 @@ Current demo defaults are intentionally modest:
 - VPC Flow Logs: enabled with `7d` retention
 - RDS Performance Insights: disabled
 - RDS Enhanced Monitoring: disabled
-- Prometheus retention: `3d` on `8Gi`
-- Loki retention: `72h` on `5Gi`
-- Alertmanager retention: `24h` on `1Gi`
+- observability data plane: Grafana Cloud-managed, with Alloy shipping logs out of cluster
 
 The goal is to keep the review environment inexpensive without changing the overall platform shape.
 
@@ -631,9 +595,7 @@ The goal is to keep the review environment inexpensive without changing the over
 | RDS storage | `20 GiB`, autoscale to `100 GiB` | keep autoscaling, raise floor only if usage justifies it | autoscaling is already the better pattern than fixed overprovisioning |
 | VPC Flow Logs | enabled, `7d` retention | `30d+` retention or org-standard log archival | short retention preserves the network-visibility story without paying for a long audit window |
 | RDS telemetry | Performance Insights and Enhanced Monitoring disabled | enable both when deeper DB troubleshooting justifies the spend | optional RDS telemetry is easy to restore later, but not necessary for a short-lived demo |
-| Prometheus | `3d`, `8Gi` | `7d-15d` with storage sized from scrape volume | short retention is fine for a demo, but longer windows help real incident review |
-| Loki | `72h`, `5Gi` | at least `7d` with object storage or larger persistent volumes | filesystem-backed Loki is acceptable for a demo, not the long-term end state |
-| Alertmanager | `24h`, `1Gi` | `120h+` with receiver and silence needs in mind | demo alert history can be short; production teams usually want longer operational context |
+| Observability | Grafana Cloud for logs, no heavy local LGTM stack by default | choose Grafana Cloud or a right-sized self-hosted stack per environment | the demo path optimizes for repeatable bring-up cost and lower cluster pressure |
 | Exposure | `LoadBalancer` for Dagster only | ingress controller plus TLS and host-based routing | direct exposure is simpler for review, ingress is cleaner once multiple services need external access |
 
 Why the EKS node group is sized this way:

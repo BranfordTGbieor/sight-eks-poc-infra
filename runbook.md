@@ -8,7 +8,7 @@ This is intentionally shorter than the earlier validation-heavy version. It focu
 2. bootstrap Argo CD
 3. verify External Secrets
 4. verify Dagster
-5. verify monitoring
+5. verify Alloy log shipping to Grafana Cloud
 6. use the recovery steps only if a known failure reappears
 
 This runbook assumes:
@@ -31,8 +31,7 @@ You need these values before starting:
   - `rds_address`
   - `rds_master_secret_arn`
 - AWS Secrets Manager secrets:
-  - Alertmanager Slack secret ARN
-  - Grafana admin secret ARN
+  - Grafana Cloud logs secret ARN
 
 Recommended commands:
 
@@ -41,13 +40,7 @@ terraform -chdir=terraform output
 
 aws secretsmanager describe-secret \
   --region us-east-1 \
-  --secret-id hydrosat/dev/alertmanager \
-  --query ARN \
-  --output text
-
-aws secretsmanager describe-secret \
-  --region us-east-1 \
-  --secret-id hydrosat/dev/grafana \
+  --secret-id hydrosat/dev/grafana-cloud \
   --query ARN \
   --output text
 ```
@@ -57,8 +50,7 @@ aws secretsmanager describe-secret \
 Populate the GitOps manifests with the current environment values:
 
 ```bash
-export ALERTMANAGER_SECRET_ARN=arn:aws:secretsmanager:...
-export GRAFANA_ADMIN_SECRET_ARN=arn:aws:secretsmanager:...
+export GRAFANA_CLOUD_LOGS_SECRET_ARN=arn:aws:secretsmanager:...
 ./scripts/sync-live-config.sh
 git diff
 ```
@@ -66,7 +58,7 @@ git diff
 Expected result:
 
 - current Terraform outputs are written into the GitOps manifests
-- current secret ARNs are written into the ExternalSecret resources
+- current Grafana Cloud secret ARN is written into the ExternalSecret resource
 - no live runtime placeholders remain in the bootstrap files
 
 Commit and push the sync if it changed tracked files:
@@ -127,29 +119,26 @@ Expected steady-state target:
 - `hydrosat-root` is `Synced` and `Healthy`
 - External Secrets resources are `Ready`
 - Dagster pods are running in `dagster`
-- monitoring pods are running in `monitoring`
+- Alloy is running in `monitoring`
 
 ## 6. External Secrets Checks
 
 ```bash
 kubectl get externalsecret -A
 kubectl get secret hydrosat-dagster-db -n dagster
-kubectl get secret hydrosat-alertmanager-config -n monitoring
-kubectl get secret hydrosat-grafana-admin -n monitoring
+kubectl get secret hydrosat-grafana-cloud -n monitoring
 ```
 
 Expected result:
 
 - `hydrosat-dagster-db` is synced
-- `hydrosat-alertmanager-config` is synced
-- `hydrosat-grafana-admin` is synced
+- `hydrosat-grafana-cloud` is synced
 
 If not:
 
 ```bash
 kubectl describe externalsecret hydrosat-dagster-db -n dagster
-kubectl describe externalsecret hydrosat-alertmanager-config -n monitoring
-kubectl describe externalsecret hydrosat-grafana-admin -n monitoring
+kubectl describe externalsecret hydrosat-grafana-cloud -n monitoring
 ```
 
 Known failure patterns:
@@ -185,24 +174,24 @@ kubectl patch job hydrosat-dagster-migrate -n dagster --type=json -p='[{"op":"re
 kubectl annotate application hydrosat-dagster -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-## 8. Monitoring Checks
+## 8. Grafana Cloud Log Shipping Checks
 
 ```bash
 kubectl get applications -n argocd
-kubectl get pvc -A
 kubectl get pods -n monitoring
+kubectl get secret hydrosat-grafana-cloud -n monitoring
 ```
 
 Expected result:
 
-- Grafana, Alertmanager, Prometheus, Alloy, and Loki components are running
+- Alloy is running
+- the Grafana Cloud credentials secret exists in `monitoring`
 
 Useful spot checks:
 
 ```bash
-kubectl port-forward svc/hydrosat-monitoring-grafana 3001:80 -n monitoring
-kubectl get prometheusrule -n monitoring
-kubectl get secret hydrosat-alertmanager-config -n monitoring -o yaml
+kubectl logs -n monitoring -l app.kubernetes.io/instance=hydrosat-alloy --all-containers --tail=200
+kubectl get pods -n dagster
 ```
 
 ## 9. Known Recovery Steps
@@ -237,7 +226,7 @@ kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argop
 
 Symptom:
 
-- `AccessDeniedException` on Alertmanager or Grafana secrets
+- `AccessDeniedException` on the Grafana Cloud secret
 
 Fix:
 
@@ -245,21 +234,7 @@ Fix:
 - rerun `terraform apply`
 - refresh the Argo CD apps
 
-### 9.4 Loki immutable StatefulSet error
-
-Symptom:
-
-- Argo CD reports:
-  - `StatefulSet.apps "hydrosat-loki" is invalid: spec: Forbidden ...`
-
-Fix:
-
-```bash
-kubectl delete statefulset hydrosat-loki -n monitoring
-kubectl annotate application hydrosat-loki -n argocd argocd.argoproj.io/refresh=hard --overwrite
-```
-
-### 9.5 Missing EBS storage provisioning
+### 9.4 Missing EBS storage provisioning
 
 Symptom:
 
@@ -277,7 +252,7 @@ kubectl get csidrivers
 kubectl get pods -n kube-system | rg ebs-csi
 ```
 
-### 9.6 Pod capacity pressure
+### 9.5 Pod capacity pressure
 
 Symptom:
 
@@ -296,8 +271,7 @@ The environment is in a good state when all of these are true:
 - `kubectl get applications -n argocd` shows the platform apps healthy enough for demo use
 - `kubectl get externalsecret -A` shows all required secrets synced
 - `kubectl get pods -n dagster` shows Dagster workloads running
-- `kubectl get pods -n monitoring` shows the monitoring stack running
-- Grafana is reachable by port-forward
+- `kubectl get pods -n monitoring` shows Alloy running
 - Dagster is reachable by port-forward
 
 ## 11. Scale Down or Destroy After Validation

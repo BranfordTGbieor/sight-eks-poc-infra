@@ -5,10 +5,9 @@ Argo CD is the primary steady-state deployment path for this repository.
 Bootstrap model:
 
 1. Install Argo CD in the same EKS cluster for demo simplicity.
-2. Make sure the Alertmanager and Grafana AWS Secrets Manager secrets exist.
+2. Make sure the Grafana Cloud AWS Secrets Manager secret exists.
 3. Run `./scripts/sync-live-config.sh` from the repo root with:
-   - `ALERTMANAGER_SECRET_ARN`
-   - `GRAFANA_ADMIN_SECRET_ARN`
+   - `GRAFANA_CLOUD_LOGS_SECRET_ARN`
 4. Review and commit the generated changes.
 5. Apply `gitops/argocd/bootstrap/root-application.yaml`.
 
@@ -18,8 +17,6 @@ What the root application manages:
 - `gitops/argocd/apps/external-secrets-operator.yaml`
 - `gitops/argocd/apps/external-secrets-resources.yaml`
 - `gitops/argocd/apps/hydrosat-dagster.yaml`
-- `gitops/argocd/apps/monitoring-kube-prometheus-stack.yaml`
-- `gitops/argocd/apps/monitoring-loki.yaml`
 - `gitops/argocd/apps/monitoring-alloy.yaml`
 
 Sync ordering:
@@ -27,7 +24,7 @@ Sync ordering:
 - wave `-1`: Argo CD project
 - wave `0`: External Secrets Operator
 - wave `1`: ExternalSecret and ClusterSecretStore resources
-- wave `2`: Dagster application, kube-prometheus-stack, Loki
+- wave `2`: Dagster application
 - wave `3`: Alloy
 
 Design note:

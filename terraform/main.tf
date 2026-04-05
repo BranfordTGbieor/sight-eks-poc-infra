@@ -61,8 +61,7 @@ module "platform" {
   dagster_service_account_name          = var.dagster_service_account_name
   external_secrets_secret_arns = compact([
     module.rds.master_user_secret_arn,
-    var.alertmanager_notifier_secret_arn,
-    var.grafana_admin_secret_arn,
+    var.grafana_cloud_logs_secret_arn,
   ])
   common_tags = local.common_tags
 }
