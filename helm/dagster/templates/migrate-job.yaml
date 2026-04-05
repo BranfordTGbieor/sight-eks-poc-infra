@@ -25,7 +25,33 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
 {{ toYaml .Values.dagster.containerSecurityContext | indent 12 }}
-          command: ["dagster", "instance", "migrate"]
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              cat > "${DAGSTER_HOME}/dagster.yaml" <<'EOF'
+              telemetry:
+                enabled: false
+              run_storage:
+                module: dagster_postgres.run_storage
+                class: PostgresRunStorage
+                config:
+                  postgres_url:
+                    env: DAGSTER_PG_URL
+              event_log_storage:
+                module: dagster_postgres.event_log
+                class: PostgresEventLogStorage
+                config:
+                  postgres_url:
+                    env: DAGSTER_PG_URL
+              schedule_storage:
+                module: dagster_postgres.schedule_storage
+                class: PostgresScheduleStorage
+                config:
+                  postgres_url:
+                    env: DAGSTER_PG_URL
+              EOF
+              exec dagster instance migrate
           env:
             - name: DAGSTER_HOME
               value: {{ .Values.dagster.home | quote }}
@@ -41,8 +67,4 @@ spec:
               mountPath: {{ .Values.dagster.home }}
       volumes:
         - name: dagster-config
-          configMap:
-            name: {{ include "hydrosat-dagster.fullname" . }}-migrate-config
-            items:
-              - key: dagster.yaml
-                path: dagster.yaml
+          emptyDir: {}
