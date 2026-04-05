@@ -18,7 +18,7 @@ spec:
       restartPolicy: Never
       securityContext:
 {{ toYaml .Values.dagster.podSecurityContext | indent 8 }}
-      serviceAccountName: {{ include "hydrosat-dagster.serviceAccountName" . }}
+      serviceAccountName: {{ default "default" .Values.dagster.migrate.serviceAccountName | quote }}
       containers:
         - name: migrate-instance
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

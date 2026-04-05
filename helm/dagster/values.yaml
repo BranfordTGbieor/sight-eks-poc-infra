@@ -26,6 +26,7 @@ dagster:
     topologyKey: topology.kubernetes.io/zone
 
   migrate:
+    serviceAccountName: default
     backoffLimit: 3
     ttlSecondsAfterFinished: 300
     resources:
