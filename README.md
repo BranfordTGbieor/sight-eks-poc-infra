@@ -196,6 +196,15 @@ The default observability path is now intentionally lighter:
 
 This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
 
+Current coverage includes:
+
+- Kubernetes pod logs shipped by Alloy
+- Kubernetes events shipped as logs
+- Alloy self-metrics
+- basic node metrics from each worker through Alloy's Unix exporter
+
+This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a more useful platform-level baseline for a demo and for Grafana Cloud alerting.
+
 ## Operational Decisions
 
 ### Job Failure Alerting
@@ -446,6 +455,16 @@ Validation flow:
 4. Launch `hydrosat_demo_job` from the Dagster UI or API.
 5. Confirm Dagster pods emit logs locally.
 6. Confirm Alloy forwards those logs to Grafana Cloud.
+7. Confirm Kubernetes events appear in Grafana Cloud logs.
+
+### Metrics Validation
+
+Validation flow:
+
+1. Confirm Alloy is running on each node.
+2. Confirm Alloy self-metrics appear in Grafana Cloud Metrics.
+3. Confirm basic node metrics appear for each worker.
+4. Confirm the exported labels are sufficient to distinguish cluster, node, namespace, and workload context.
 
 ### Alert Validation
 

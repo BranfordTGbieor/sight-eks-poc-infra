@@ -203,6 +203,8 @@ Expected result:
 - Alloy is running
 - the Grafana Cloud credentials secret exists in `monitoring`
 - Alloy is exporting its own metrics over Prometheus remote write
+- Kubernetes events are also shipped as logs
+- basic node metrics are exported from each worker through Alloy
 
 Useful spot checks:
 
@@ -210,6 +212,13 @@ Useful spot checks:
 kubectl logs -n monitoring -l app.kubernetes.io/instance=hydrosat-alloy --all-containers --tail=200
 kubectl get pods -n dagster
 ```
+
+Coverage expectation after bootstrap:
+
+- pod logs in Grafana Cloud Loki
+- Kubernetes events in Grafana Cloud Loki
+- Alloy self-metrics in Grafana Cloud Metrics
+- node-level CPU, memory, filesystem, and related OS metrics in Grafana Cloud Metrics
 
 If you rotate the Grafana Cloud secret value:
 
