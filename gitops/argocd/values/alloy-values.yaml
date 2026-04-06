@@ -14,59 +14,12 @@ alloy:
   envFrom:
     - secretRef:
         name: hydrosat-grafana-cloud
-  extraPorts:
-    - name: otlp-grpc
-      port: 4317
-      targetPort: 4317
-      protocol: TCP
-      appProtocol: grpc
-    - name: otlp-http
-      port: 4318
-      targetPort: 4318
-      protocol: TCP
-      appProtocol: http
   mounts:
     varlog: true
     dockercontainers: true
   configMap:
     create: true
     content: |
-      otelcol.auth.basic "grafana_cloud_otlp" {
-        username = sys.env("GRAFANA_CLOUD_OTLP_USERNAME")
-        password = sys.env("GRAFANA_CLOUD_OTLP_PASSWORD")
-      }
-
-      otelcol.receiver.otlp "ingest" {
-        grpc {
-          endpoint = "0.0.0.0:4317"
-        }
-
-        http {
-          endpoint = "0.0.0.0:4318"
-        }
-
-        output {
-          logs    = [otelcol.processor.batch.grafana_cloud_otlp.input]
-          metrics = [otelcol.processor.batch.grafana_cloud_otlp.input]
-          traces  = [otelcol.processor.batch.grafana_cloud_otlp.input]
-        }
-      }
-
-      otelcol.processor.batch "grafana_cloud_otlp" {
-        output {
-          logs    = [otelcol.exporter.otlphttp.grafana_cloud.input]
-          metrics = [otelcol.exporter.otlphttp.grafana_cloud.input]
-          traces  = [otelcol.exporter.otlphttp.grafana_cloud.input]
-        }
-      }
-
-      otelcol.exporter.otlphttp "grafana_cloud" {
-        client {
-          endpoint = sys.env("GRAFANA_CLOUD_OTLP_URL")
-          auth     = otelcol.auth.basic.grafana_cloud_otlp.handler
-        }
-      }
-
       discovery.kubernetes "pods" {
         role = "pod"
       }

@@ -356,19 +356,9 @@ Example Grafana Cloud logs secret payload:
   "logsPassword": "<grafana-cloud-access-policy-token>",
   "metricsUrl": "https://prometheus-prod-<stack>.grafana.net/api/prom/push",
   "metricsUsername": "<stack-user-or-tenant-id>",
-  "metricsPassword": "<grafana-cloud-access-policy-token>",
-  "otlpUrl": "https://otlp-gateway-<region>.grafana.net/otlp",
-  "otlpUsername": "<stack-user-or-tenant-id>",
-  "otlpPassword": "<grafana-cloud-access-policy-token>"
+  "metricsPassword": "<grafana-cloud-access-policy-token>"
 }
 ```
-
-The current profile now supports two complementary paths:
-
-- native Alloy `loki.write` and `prometheus.remote_write` for the lightweight cluster log/metrics flow
-- an OTLP-native receiver and exporter path for application telemetry sent to Alloy on:
-  - gRPC: `hydrosat-alloy.monitoring.svc.cluster.local:4317`
-  - HTTP: `hydrosat-alloy.monitoring.svc.cluster.local:4318`
 
 To avoid re-editing ARNs and Terraform outputs after every fresh apply, use:
 
