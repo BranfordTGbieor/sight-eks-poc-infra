@@ -203,6 +203,7 @@ Expected result:
 - Alloy is running
 - the Grafana Cloud credentials secret exists in `monitoring`
 - Alloy is exporting its own metrics over Prometheus remote write
+- Alloy exposes OTLP receiver ports inside the cluster on `4317` and `4318`
 
 Useful spot checks:
 
@@ -210,6 +211,11 @@ Useful spot checks:
 kubectl logs -n monitoring -l app.kubernetes.io/instance=hydrosat-alloy --all-containers --tail=200
 kubectl get pods -n dagster
 ```
+
+OTLP app telemetry target inside the cluster:
+
+- gRPC: `hydrosat-alloy.monitoring.svc.cluster.local:4317`
+- HTTP: `hydrosat-alloy.monitoring.svc.cluster.local:4318`
 
 If you rotate the Grafana Cloud secret value:
 
