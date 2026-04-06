@@ -218,6 +218,26 @@ kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring force-sync=
 kubectl rollout restart daemonset/hydrosat-alloy -n monitoring
 ```
 
+## 8.1 Grafana Cloud Alerting
+
+The current recommended alerting path is Grafana Cloud-managed alerting, not in-cluster Alertmanager.
+
+For this repo, the first alert set should be:
+
+- Alloy export/auth failures
+- Dagster webserver unavailable
+- Dagster daemon unavailable
+- repeated Dagster error logs
+- no recent Dagster workload logs during expected activity windows
+
+Pragmatic first implementation:
+
+1. configure contact points and notification policies in the Grafana Cloud UI
+2. create a small alert set in Grafana Cloud using the exported metrics/logs
+3. document the chosen rules and thresholds in this repo after validation
+
+This keeps the cluster simpler while still giving you a credible alerting story for the demo.
+
 ## 9. Known Recovery Steps
 
 Use these only if the normal bring-up path gets stuck.

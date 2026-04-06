@@ -204,6 +204,20 @@ Dagster remains the source of truth for job-failure semantics. The chart still s
 
 That keeps the demo bootstrap cheaper and simpler while leaving room to add Grafana Cloud alerting or a separate alerting path later.
 
+Current recommendation:
+
+- use Grafana Cloud-managed alerting for this repo's default observability path
+- configure alert rules and notification policies in Grafana Cloud first, rather than reintroducing in-cluster Alertmanager
+- document the chosen rules and contact points in this repo even if the first implementation is created through the Grafana Cloud UI
+
+Recommended first alert set:
+
+- Alloy export/auth failures
+- Dagster webserver unavailable
+- Dagster daemon unavailable
+- repeated Dagster error logs in Grafana Cloud Loki
+- absence of expected Dagster workload logs over a recent window
+
 ### Secrets Management
 
 AWS Secrets Manager is the source of truth for:
@@ -432,6 +446,17 @@ Validation flow:
 4. Launch `hydrosat_demo_job` from the Dagster UI or API.
 5. Confirm Dagster pods emit logs locally.
 6. Confirm Alloy forwards those logs to Grafana Cloud.
+
+### Alert Validation
+
+Recommended first alerting flow in Grafana Cloud:
+
+1. Create contact points and notification policies in Grafana Cloud.
+2. Add a small first set of alert rules based on the exported metrics and logs.
+3. Trigger one controlled failure case from Dagster.
+4. Confirm the alert fires and reaches the expected notification target.
+
+For this exercise, manual alert configuration in the Grafana Cloud UI is acceptable and keeps the repo simpler. If the alert footprint grows, the next step would be to evaluate whether alert provisioning should move into code.
 
 ### Local Verification
 
