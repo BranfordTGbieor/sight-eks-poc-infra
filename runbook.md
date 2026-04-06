@@ -288,7 +288,83 @@ Fix:
 - temporarily scale the node group up for validation
 - after validation, scale it back down to control cost
 
-## 10. Recommended Validation End State
+## 10. Pre-Destroy Checklist
+
+Before `terraform destroy`, clean up the resources that AWS and Kubernetes do not always tear down quickly enough on their own.
+
+### 10.1 Delete Kubernetes `LoadBalancer` services first
+
+If cluster access still works:
+
+```bash
+kubectl get svc -A
+kubectl delete svc hydrosat-dagster-webserver -n dagster --ignore-not-found
+```
+
+Why:
+
+- Kubernetes-created AWS load balancers can outlive the cluster for several minutes
+- their ENIs and security groups block subnet, internet gateway, and VPC deletion
+
+### 10.2 Verify the AWS load balancer is gone
+
+```bash
+aws elb describe-load-balancers --region us-east-1 --output table
+
+aws ec2 describe-network-interfaces \
+  --region us-east-1 \
+  --filters Name=vpc-id,Values=<vpc-id> \
+  --query 'NetworkInterfaces[].[NetworkInterfaceId,Status,Description,Association.PublicIp,SubnetId]' \
+  --output table
+```
+
+Expected result:
+
+- no classic ELB remains for `hydrosat-dagster-webserver`
+- no ELB ENIs remain in the public subnets
+
+If the cluster is already gone and you still see the ELB, delete it directly:
+
+```bash
+aws elb delete-load-balancer --region us-east-1 --load-balancer-name <name>
+```
+
+### 10.3 Empty versioned S3 buckets
+
+Before destroy, empty any versioned buckets managed by Terraform:
+
+```bash
+BUCKET=hydrosat-dev-data-lake-logs
+
+aws s3api delete-objects \
+  --bucket "$BUCKET" \
+  --delete "$(aws s3api list-object-versions --bucket "$BUCKET" --output json | jq '{Objects: ((.Versions // []) + (.DeleteMarkers // [])) | map({Key:.Key,VersionId:.VersionId}), Quiet: true}')"
+```
+
+If needed, repeat for:
+
+- `hydrosat-dev-data-lake`
+
+Why:
+
+- Terraform cannot delete non-empty versioned buckets
+- object versions and delete markers both block bucket deletion
+
+### 10.4 Then run destroy
+
+```bash
+terraform -chdir=terraform destroy
+```
+
+If the VPC still sticks in `Destroying`, inspect:
+
+```bash
+aws ec2 describe-network-interfaces --region us-east-1 --filters Name=vpc-id,Values=<vpc-id> --output table
+aws ec2 describe-security-groups --region us-east-1 --filters Name=vpc-id,Values=<vpc-id> --output table
+aws ec2 describe-nat-gateways --region us-east-1 --filter Name=vpc-id,Values=<vpc-id> --output table
+```
+
+## 11. Recommended Validation End State
 
 The environment is in a good state when all of these are true:
 
@@ -298,7 +374,7 @@ The environment is in a good state when all of these are true:
 - `kubectl get pods -n monitoring` shows Alloy running
 - Dagster is reachable by port-forward
 
-## 11. Scale Down or Destroy After Validation
+## 12. Scale Down or Destroy After Validation
 
 If you only need a short validation window:
 
