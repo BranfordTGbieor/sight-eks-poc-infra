@@ -45,7 +45,7 @@ perl -0pi -e "s#region: .*#region: ${AWS_REGION}#g" \
 perl -0pi -e "s#key: (?:REPLACE_WITH_RDS_MASTER_SECRET_ARN|arn:aws:secretsmanager:[^\\n]+rds![^\\n]+)#key: ${RDS_SECRET_ARN}#g" \
   "${ROOT_DIR}/gitops/external-secrets/dagster-db-external-secret.yaml"
 
-perl -0pi -e "s#host: \".*\"#host: \"${RDS_ADDRESS}\"#g; s#url: \".*\"#url: \"postgresql://{{ .username | urlquery }}:{{ .password | urlquery }}@${RDS_ADDRESS}:5432/dagster\"#g" \
+perl -0pi -e "s#host: \".*\"#host: \"${RDS_ADDRESS}\"#g; s#url: \".*?\"#url: \"postgresql://{{ .username | urlquery }}:{{ .password | urlquery }}\@${RDS_ADDRESS}:5432/dagster\"#g" \
   "${ROOT_DIR}/gitops/external-secrets/dagster-db-external-secret.yaml"
 
 perl -0pi -e "s#key: (?:REPLACE_WITH_GRAFANA_CLOUD_SECRET_ARN|arn:aws:secretsmanager:[^\\n]+hydrosat/dev/grafana-cloud[^\\n]*)#key: ${GRAFANA_CLOUD_SECRET_ARN}#g" \
