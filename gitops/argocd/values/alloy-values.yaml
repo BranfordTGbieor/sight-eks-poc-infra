@@ -1,25 +1,15 @@
 controller:
-  type: daemonset
+  type: deployment
+  replicas: 1
   podAnnotations:
     k8s.grafana.com/logs.job: hydrosat-alloy
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 64Mi
     limits:
-      cpu: 300m
-      memory: 256Mi
-  volumes:
-    extra:
-      - name: host-root
-        hostPath:
-          path: /
-      - name: host-proc
-        hostPath:
-          path: /proc
-      - name: host-sys
-        hostPath:
-          path: /sys
+      cpu: 200m
+      memory: 128Mi
 
 alloy:
   envFrom:
@@ -28,16 +18,6 @@ alloy:
   mounts:
     varlog: true
     dockercontainers: true
-    extra:
-      - name: host-root
-        mountPath: /host/root
-        readOnly: true
-      - name: host-proc
-        mountPath: /host/proc
-        readOnly: true
-      - name: host-sys
-        mountPath: /host/sys
-        readOnly: true
   configMap:
     create: true
     content: |
@@ -127,18 +107,7 @@ alloy:
         }
       }
 
-      prometheus.exporter.unix "node" {
-        rootfs_path = "/host/root"
-        procfs_path = "/host/proc"
-        sysfs_path  = "/host/sys"
-      }
-
       prometheus.exporter.self "alloy" {}
-
-      prometheus.scrape "node" {
-        targets    = prometheus.exporter.unix.node.targets
-        forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-      }
 
       prometheus.scrape "alloy" {
         targets    = prometheus.exporter.self.alloy.targets

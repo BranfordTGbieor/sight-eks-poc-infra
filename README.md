@@ -201,9 +201,8 @@ Current coverage includes:
 - Kubernetes pod logs shipped by Alloy
 - Kubernetes events shipped as logs
 - Alloy self-metrics
-- basic node metrics from each worker through Alloy's Unix exporter
 
-This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a more useful platform-level baseline for a demo and for Grafana Cloud alerting.
+This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a useful platform-level baseline for a demo and for Grafana Cloud alerting without duplicating low-value infrastructure metrics that AWS already exposes elsewhere.
 
 ## Operational Decisions
 
@@ -461,10 +460,9 @@ Validation flow:
 
 Validation flow:
 
-1. Confirm Alloy is running on each node.
+1. Confirm Alloy is running and healthy.
 2. Confirm Alloy self-metrics appear in Grafana Cloud Metrics.
-3. Confirm basic node metrics appear for each worker.
-4. Confirm the exported labels are sufficient to distinguish cluster, node, namespace, and workload context.
+3. Confirm the exported labels are sufficient to distinguish cluster, namespace, and workload context.
 
 ### Alert Validation
 
