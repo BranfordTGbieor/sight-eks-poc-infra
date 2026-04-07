@@ -16,7 +16,7 @@ This runbook assumes:
 - repo root is `hydrosat-infra/`
 - Terraform apply has completed successfully
 - AWS CLI, `kubectl`, `terraform`, and `git` work locally
-- the `hydrosat-data` image tag already exists
+- the `hydrosat-data` image tag already exists and has passed CI before release
 
 ## 1. Required Inputs
 
@@ -163,6 +163,13 @@ Expected result:
 
 - migration job completes
 - webserver, daemon, and user-code are `Running`
+- the smaller 3-node demo cluster is sufficient with the current lightweight profile
+
+Validated state from the latest bring-up:
+
+- Dagster reached `Synced / Healthy`
+- the demo job completed successfully
+- a controlled failure run also executed as expected for alert-validation work
 
 If Dagster stays `OutOfSync / Missing` in Argo CD:
 
@@ -218,11 +225,27 @@ Coverage expectation after bootstrap:
 - Kubernetes events in Grafana Cloud Loki
 - Alloy self-metrics in Grafana Cloud Metrics
 
+Useful LogQL checks:
+
+```logql
+{cluster="hydrosat-dev-eks", namespace="dagster", source="kubernetes_pod"}
+```
+
+```logql
+{cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job"
+```
+
+Validated result from the latest run:
+
+- Dagster `webserver`, `daemon`, and `user-code` logs were visible in Grafana Cloud
+- Kubernetes events were visible in Grafana Cloud
+- the controlled Dagster failure was visible through `RUN_FAILURE` log lines in the `user-code` stream
+
 If you rotate the Grafana Cloud secret value:
 
 ```bash
 kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring force-sync=$(date +%s) --overwrite
-kubectl rollout restart daemonset/hydrosat-alloy -n monitoring
+kubectl rollout restart deployment/hydrosat-alloy -n monitoring
 ```
 
 ## 8.1 Grafana Cloud Alerting
@@ -241,7 +264,8 @@ Pragmatic first implementation:
 
 1. configure contact points and notification policies in the Grafana Cloud UI
 2. create a small alert set in Grafana Cloud using the exported metrics/logs
-3. document the chosen rules and thresholds in this repo after validation
+3. start with a Dagster log alert on `RUN_FAILURE` for `hydrosat_lakehouse_job`
+4. document the chosen rules and thresholds in this repo after validation
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
 

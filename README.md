@@ -201,6 +201,7 @@ Current coverage includes:
 - Kubernetes pod logs shipped by Alloy
 - Kubernetes events shipped as logs
 - Alloy self-metrics
+- Dagster workload logs for `webserver`, `daemon`, and `user-code`
 
 This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a useful platform-level baseline for a demo and for Grafana Cloud alerting without duplicating low-value infrastructure metrics that AWS already exposes elsewhere.
 
@@ -223,7 +224,7 @@ Recommended first alert set:
 - Alloy export/auth failures
 - Dagster webserver unavailable
 - Dagster daemon unavailable
-- repeated Dagster error logs in Grafana Cloud Loki
+- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki
 - absence of expected Dagster workload logs over a recent window
 
 ### Secrets Management
@@ -444,6 +445,13 @@ The demo job and its run config live in the separate `hydrosat-data` repository.
 - run with `should_fail: false` to prove normal execution
 - run with `should_fail: true` to trigger controlled failure and alert routing
 
+Validated state:
+
+- a successful Dagster run completed on the 3-node demo cluster
+- a controlled failure run completed with the expected Dagster `RUN_FAILURE`
+- the pipeline wrote demo data into the S3-backed lake layout
+- the application release and infra image-promotion workflow were exercised end to end
+
 ### Log Validation
 
 Validation flow:
@@ -451,10 +459,26 @@ Validation flow:
 1. Confirm External Secrets is healthy.
 2. Confirm `hydrosat-dagster-db` exists in `dagster`.
 3. Confirm `hydrosat-grafana-cloud` exists in `monitoring`.
-4. Launch `hydrosat_demo_job` from the Dagster UI or API.
+4. Launch `hydrosat_lakehouse_job` from the Dagster UI or API.
 5. Confirm Dagster pods emit logs locally.
 6. Confirm Alloy forwards those logs to Grafana Cloud.
 7. Confirm Kubernetes events appear in Grafana Cloud logs.
+
+Useful LogQL examples:
+
+```logql
+{cluster="hydrosat-dev-eks", namespace="dagster", source="kubernetes_pod"}
+```
+
+```logql
+{cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job"
+```
+
+Validated result:
+
+- Dagster workload logs are queryable in Grafana Cloud Loki
+- Kubernetes event logs are queryable in Grafana Cloud Loki
+- the controlled failure run is visible from the `user-code` logs using `RUN_FAILURE`
 
 ### Metrics Validation
 
@@ -469,11 +493,16 @@ Validation flow:
 Recommended first alerting flow in Grafana Cloud:
 
 1. Create contact points and notification policies in Grafana Cloud.
-2. Add a small first set of alert rules based on the exported metrics and logs.
+2. Add a small first set of alert rules based on the exported metrics and logs, starting with the Dagster `RUN_FAILURE` log signal.
 3. Trigger one controlled failure case from Dagster.
 4. Confirm the alert fires and reaches the expected notification target.
 
 For this exercise, manual alert configuration in the Grafana Cloud UI is acceptable and keeps the repo simpler. If the alert footprint grows, the next step would be to evaluate whether alert provisioning should move into code.
+
+Current gap:
+
+- log ingestion and controlled failure detection are validated
+- notification delivery is still the remaining alerting step to close
 
 ### Local Verification
 
