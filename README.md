@@ -65,6 +65,19 @@ This repo is the infrastructure half of a split-repo model:
 | Observability | Grafana Cloud + Alloy | Keeps demo observability lightweight while preserving centralized logs |
 | CI/CD | GitHub Actions | Separate infra validation and governed Terraform delivery |
 
+## Assignment Coverage
+
+| Assignment area | What this repo implements | Current status |
+| --- | --- | --- |
+| Provision infrastructure with Terraform | VPC, EKS, managed node group, RDS PostgreSQL, S3 lake bucket, IAM, and supporting platform resources | Implemented and validated |
+| Deploy Dagster on EKS | Helm-packaged Dagster webserver, daemon, migration job, and gRPC user-code workload | Implemented and validated |
+| Use PostgreSQL for Dagster metadata | Amazon RDS PostgreSQL with secrets delivered through External Secrets | Implemented and validated |
+| Expose the Dagster UI | Kubernetes `LoadBalancer` service for demo access | Implemented and validated |
+| Run a dummy data pipeline | Split-repo flow with `hydrosat-data` image, sample ingestion, and staged/curated outputs in S3 | Implemented and validated |
+| Monitor and observe the platform | Alloy shipping pod logs, Dagster workload logs, events, and self-metrics to Grafana Cloud | Implemented and validated |
+| Alert on Dagster job failure | Grafana Cloud alert design documented with validated failure log signal | Design validated, notification delivery still pending |
+| Document architecture and usage | End-to-end README, runbook, and repo-native smoke check | Implemented |
+
 ## Repository Layout
 
 | Path | Purpose |
@@ -465,6 +478,14 @@ Validated state:
 - a controlled failure run completed with the expected Dagster `RUN_FAILURE`
 - the pipeline wrote demo data into the S3-backed lake layout
 - the application release and infra image-promotion workflow were exercised end to end
+
+Current validation status:
+
+- cluster bring-up is repeatable through Terraform, GitOps sync, Argo CD bootstrap, and the repo smoke check
+- Dagster steady state is healthy on the smaller 3-node cluster profile
+- success and controlled failure runs are both proven
+- Grafana Cloud ingestion of Dagster workload logs is proven
+- notification delivery from Grafana Cloud alerting is the main remaining live validation item
 
 ### Log Validation
 
