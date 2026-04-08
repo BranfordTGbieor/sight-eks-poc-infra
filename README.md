@@ -227,6 +227,20 @@ Recommended first alert set:
 - Dagster `RUN_FAILURE` logs in Grafana Cloud Loki
 - absence of expected Dagster workload logs over a recent window
 
+Recommended implementation order:
+
+1. Dagster run failure log alert
+2. Dagster webserver unavailable alert
+3. Dagster daemon unavailable alert
+4. Alloy export/auth failure alert
+5. missing Dagster workload log heartbeat alert
+
+Suggested notification model:
+
+- one low-noise contact point for the exercise, such as email or Slack
+- one default notification policy for `severity=warning`
+- one dedicated policy for `service=dagster` so job failures do not mix with general platform noise
+
 ### Secrets Management
 
 AWS Secrets Manager is the source of truth for:
@@ -503,6 +517,54 @@ Current gap:
 
 - log ingestion and controlled failure detection are validated
 - notification delivery is still the remaining alerting step to close
+
+Suggested first Grafana Cloud alert pack:
+
+1. Dagster job failure
+
+LogQL:
+
+```logql
+sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job" [5m])) > 0
+```
+
+Intent:
+
+- page or notify whenever the demo job records a Dagster `RUN_FAILURE`
+
+2. Dagster webserver unavailable
+
+PromQL:
+
+```promql
+up{namespace="dagster"} == 0
+```
+
+Use only if the exported metrics include a stable Dagster target; otherwise keep this as a later follow-up.
+
+3. Dagster daemon unavailable
+
+PromQL:
+
+```promql
+up{namespace="dagster"} == 0
+```
+
+Again, keep this metrics-based only if the target labels exist consistently in Grafana Cloud.
+
+4. Alloy export/auth failures
+
+Signal:
+
+- use Alloy logs and look for authentication or remote-write failures after a secret change or cluster bring-up
+
+5. Missing Dagster workload logs
+
+Signal:
+
+- alert if no `dagster` workload logs appear during an expected validation window
+
+For the exercise, the only must-have alert to close the assignment is the Dagster failure alert. The others are the sensible first follow-ups.
 
 ### Local Verification
 

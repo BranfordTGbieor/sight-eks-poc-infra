@@ -293,6 +293,39 @@ Pragmatic first implementation:
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
 
+Recommended first UI configuration:
+
+1. create one exercise contact point:
+   - email or Slack
+2. add a notification policy for:
+   - `service=dagster`
+3. keep the first rule set intentionally small:
+   - one required rule for Dagster job failure
+   - optional follow-ups for Alloy auth/export issues and missing workload logs
+
+Suggested first Dagster alert rule:
+
+- name: `Dagster Job Failure`
+- labels:
+  - `service=dagster`
+  - `severity=warning`
+- evaluate every: `1m`
+- for: `0m`
+- query:
+
+```logql
+sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job" [5m])) > 0
+```
+
+Expected validation:
+
+1. save the rule
+2. trigger the controlled failure in Dagster with `should_fail: true`
+3. confirm the rule enters firing state
+4. confirm the notification reaches the configured contact point
+
+Until that notification lands, the assignment's alerting requirement remains only partially closed.
+
 ## 10. Known Recovery Steps
 
 Use these only if the normal bring-up path gets stuck.
