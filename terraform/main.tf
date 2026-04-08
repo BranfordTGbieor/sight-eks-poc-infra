@@ -15,18 +15,18 @@ locals {
 module "network" {
   source = "./modules/network"
 
-  name_prefix          = local.name
-  enable_kms_hardening = var.enable_service_kms_hardening
+  name_prefix                 = local.name
+  enable_kms_hardening        = var.enable_service_kms_hardening
   cloudwatch_logs_kms_key_arn = var.cloudwatch_logs_kms_key_arn
-  enable_flow_logs     = var.enable_vpc_flow_logs
-  flow_log_retention   = var.vpc_flow_log_retention_in_days
-  vpc_cidr             = var.vpc_cidr
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  public_subnet_azs    = var.public_subnet_azs
-  private_subnet_azs   = var.private_subnet_azs
-  eks_cluster_name     = "${local.name}-eks"
-  common_tags          = local.common_tags
+  enable_flow_logs            = var.enable_vpc_flow_logs
+  flow_log_retention          = var.vpc_flow_log_retention_in_days
+  vpc_cidr                    = var.vpc_cidr
+  public_subnet_cidrs         = var.public_subnet_cidrs
+  private_subnet_cidrs        = var.private_subnet_cidrs
+  public_subnet_azs           = var.public_subnet_azs
+  private_subnet_azs          = var.private_subnet_azs
+  eks_cluster_name            = "${local.name}-eks"
+  common_tags                 = local.common_tags
 }
 
 module "eks" {
