@@ -141,9 +141,27 @@ variable "grafana_cloud_secret_arn" {
 }
 
 variable "enable_service_kms_hardening" {
-  description = "Whether to use AWS-managed KMS aliases for EKS secrets encryption and CloudWatch Logs."
+  description = "Whether to enable customer-managed KMS encryption for supported services. When enabled, explicit KMS key ARNs must also be provided."
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "eks_secrets_kms_key_arn" {
+  description = "Optional customer-managed KMS key ARN used for EKS secret encryption."
+  type        = string
+  default     = ""
+}
+
+variable "cloudwatch_logs_kms_key_arn" {
+  description = "Optional customer-managed KMS key ARN used for CloudWatch Logs encryption, including VPC flow logs."
+  type        = string
+  default     = ""
+}
+
+variable "s3_kms_key_arn" {
+  description = "Optional customer-managed KMS key ARN used for S3 bucket encryption."
+  type        = string
+  default     = ""
 }
 
 variable "enable_vpc_flow_logs" {
@@ -222,4 +240,16 @@ variable "extra_tags" {
   description = "Additional tags applied to all supported resources."
   type        = map(string)
   default     = {}
+}
+
+check "kms_key_arns_when_enabled" {
+  assert {
+    condition = !var.enable_service_kms_hardening || (
+      trimspace(var.eks_secrets_kms_key_arn) != "" &&
+      trimspace(var.cloudwatch_logs_kms_key_arn) != "" &&
+      trimspace(var.s3_kms_key_arn) != ""
+    )
+
+    error_message = "enable_service_kms_hardening requires explicit eks_secrets_kms_key_arn, cloudwatch_logs_kms_key_arn, and s3_kms_key_arn values."
+  }
 }

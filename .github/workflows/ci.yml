@@ -92,3 +92,90 @@ jobs:
           helm template hydrosat-external-secrets external-secrets/external-secrets \
             --version 2.2.0 \
             -f gitops/argocd/values/external-secrets-values.yaml >/tmp/hydrosat-external-secrets-rendered.yaml
+
+  plan:
+    name: Reviewable Terraform Plan
+    runs-on: ubuntu-latest
+    needs: validate
+    if: vars.AWS_TERRAFORM_ROLE_ARN != '' && vars.TF_STATE_BUCKET != '' && vars.TF_LOCK_TABLE != ''
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve target environment
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          branch="${BASE_REF:-$REF_NAME}"
+          case "${branch}" in
+            main|master)
+              environment_name="prod"
+              ;;
+            qa)
+              environment_name="qa"
+              ;;
+            develop|dev)
+              environment_name="dev"
+              ;;
+            *)
+              environment_name="dev"
+              ;;
+          esac
+          echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
+          echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write CI tfvars
+        working-directory: terraform
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          environment = "${{ steps.resolve.outputs.environment_name }}"
+          enable_service_kms_hardening = false
+          extra_tags = {
+            DeploymentSource = "github-actions-ci"
+            GitRef           = "${{ steps.resolve.outputs.git_ref_tag }}"
+          }
+          EOF
+
+      - name: Write backend config
+        working-directory: terraform
+        run: |
+          cat > backend.ci.hcl <<EOF
+          bucket         = "${{ vars.TF_STATE_BUCKET }}"
+          dynamodb_table = "${{ vars.TF_LOCK_TABLE }}"
+          key            = "${{ steps.resolve.outputs.environment_name }}/platform.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          EOF
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -backend-config=backend.ci.hcl
+
+      - name: Terraform plan
+        working-directory: terraform
+        run: terraform plan -no-color -input=false | tee terraform-plan.txt
+
+      - name: Upload reviewable plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-terraform-plan-${{ steps.resolve.outputs.environment_name }}
+          path: terraform/terraform-plan.txt

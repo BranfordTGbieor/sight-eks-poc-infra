@@ -1,8 +1,3 @@
-data "aws_kms_alias" "s3" {
-  count = var.enable_kms_hardening ? 1 : 0
-  name  = "alias/aws/s3"
-}
-
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "data_lake_logs" {
@@ -28,7 +23,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake_logs" {
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = var.enable_kms_hardening ? "aws:kms" : "AES256"
-      kms_master_key_id = var.enable_kms_hardening ? data.aws_kms_alias.s3[0].target_key_arn : null
+      kms_master_key_id = var.enable_kms_hardening ? var.s3_kms_key_arn : null
     }
     bucket_key_enabled = var.enable_kms_hardening
   }
@@ -120,7 +115,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake" {
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = var.enable_kms_hardening ? "aws:kms" : "AES256"
-      kms_master_key_id = var.enable_kms_hardening ? data.aws_kms_alias.s3[0].target_key_arn : null
+      kms_master_key_id = var.enable_kms_hardening ? var.s3_kms_key_arn : null
     }
     bucket_key_enabled = var.enable_kms_hardening
   }

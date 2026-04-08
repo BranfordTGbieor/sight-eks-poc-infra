@@ -17,6 +17,7 @@ module "network" {
 
   name_prefix          = local.name
   enable_kms_hardening = var.enable_service_kms_hardening
+  cloudwatch_logs_kms_key_arn = var.cloudwatch_logs_kms_key_arn
   enable_flow_logs     = var.enable_vpc_flow_logs
   flow_log_retention   = var.vpc_flow_log_retention_in_days
   vpc_cidr             = var.vpc_cidr
@@ -34,6 +35,7 @@ module "eks" {
   cluster_name                 = "${local.name}-eks"
   cluster_version              = var.eks_cluster_version
   enable_kms_hardening         = var.enable_service_kms_hardening
+  eks_secrets_kms_key_arn      = var.eks_secrets_kms_key_arn
   vpc_id                       = module.network.vpc_id
   cluster_subnet_ids           = concat(module.network.public_subnet_ids, module.network.private_subnet_ids)
   endpoint_private_access      = var.cluster_endpoint_private_access
@@ -53,6 +55,7 @@ module "platform" {
 
   name_prefix                           = local.name
   enable_kms_hardening                  = var.enable_service_kms_hardening
+  s3_kms_key_arn                        = var.s3_kms_key_arn
   oidc_provider_arn                     = module.eks.oidc_provider_arn
   oidc_provider_url                     = module.eks.oidc_provider_url
   external_secrets_namespace            = var.external_secrets_namespace

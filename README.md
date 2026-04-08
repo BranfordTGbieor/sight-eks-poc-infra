@@ -491,6 +491,7 @@ It covers:
 - Terraform formatting
 - Checkov security scanning
 - Terraform validation for `terraform/`
+- a reviewable Terraform plan artifact when delivery variables are configured
 - Helm lint for the Dagster chart
 - Helm rendering for Dagster and GitOps-managed charts
 
@@ -500,7 +501,7 @@ Governed Terraform delivery lives in [terraform-delivery.yml](.github/workflows/
 
 Design choices:
 
-- PRs can run Terraform plan when delivery variables are configured
+- CI produces the reviewable plan before delivery is triggered
 - `apply` is separate from general CI
 - `apply` is intended to be protected by GitHub Environment approval rules
 - a gated post-apply stage bootstraps Argo CD and runs the repo smoke check

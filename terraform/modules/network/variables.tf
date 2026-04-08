@@ -6,6 +6,10 @@ variable "enable_kms_hardening" {
   type = bool
 }
 
+variable "cloudwatch_logs_kms_key_arn" {
+  type = string
+}
+
 variable "enable_flow_logs" {
   type = bool
 }

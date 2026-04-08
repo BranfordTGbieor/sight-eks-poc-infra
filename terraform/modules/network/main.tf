@@ -1,8 +1,3 @@
-data "aws_kms_alias" "cloudwatch" {
-  count = var.enable_flow_logs && var.enable_kms_hardening ? 1 : 0
-  name  = "alias/aws/logs"
-}
-
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -17,7 +12,7 @@ resource "aws_vpc" "this" {
 resource "aws_cloudwatch_log_group" "flow_logs" {
   count             = var.enable_flow_logs ? 1 : 0
   name              = "/aws/vpc/${var.name_prefix}/flow-logs"
-  kms_key_id        = var.enable_kms_hardening ? data.aws_kms_alias.cloudwatch[0].target_key_arn : null
+  kms_key_id        = var.enable_kms_hardening ? var.cloudwatch_logs_kms_key_arn : null
   retention_in_days = var.flow_log_retention
 
   tags = merge(var.common_tags, {

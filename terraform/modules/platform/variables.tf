@@ -6,6 +6,10 @@ variable "enable_kms_hardening" {
   type = bool
 }
 
+variable "s3_kms_key_arn" {
+  type = string
+}
+
 variable "oidc_provider_arn" {
   type = string
 }

@@ -1,8 +1,3 @@
-data "aws_kms_alias" "eks" {
-  count = var.enable_kms_hardening ? 1 : 0
-  name  = "alias/aws/eks"
-}
-
 data "aws_iam_policy" "ebs_csi" {
   count = var.enable_ebs_csi_driver ? 1 : 0
   arn   = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
@@ -186,7 +181,7 @@ resource "aws_eks_cluster" "this" {
     for_each = var.enable_kms_hardening ? [1] : []
     content {
       provider {
-        key_arn = data.aws_kms_alias.eks[0].target_key_arn
+        key_arn = var.eks_secrets_kms_key_arn
       }
       resources = ["secrets"]
     }

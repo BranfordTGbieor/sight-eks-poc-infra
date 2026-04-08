@@ -1,10 +1,6 @@
 name: Terraform Delivery
 
 on:
-  pull_request:
-    paths:
-      - "terraform/**"
-      - ".github/workflows/terraform-delivery.yml"
   workflow_dispatch:
 
 permissions:
@@ -88,6 +84,7 @@ jobs:
         run: |
           cat > ci.auto.tfvars <<EOF
           environment = "${TARGET_ENVIRONMENT}"
+          enable_service_kms_hardening = false
           extra_tags = {
             DeploymentSource = "github-actions"
             GitRef           = "${GIT_REF_TAG}"

@@ -6,6 +6,10 @@ variable "enable_kms_hardening" {
   type = bool
 }
 
+variable "eks_secrets_kms_key_arn" {
+  type = string
+}
+
 variable "cluster_version" {
   type = string
 }
