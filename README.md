@@ -330,6 +330,24 @@ Networking decisions:
 
 The public endpoint can be narrowed through `cluster_endpoint_public_access_cidrs`. For a longer-lived environment, I would typically disable public endpoint access after bootstrap.
 
+External access decision:
+
+- keep the current Dagster `LoadBalancer` plus Argo CD port-forward model for the exercise
+- do not introduce a shared ingress controller yet
+
+Why this is the right short-term choice:
+
+- the assignment only requires that the Dagster UI be reachable
+- the direct `LoadBalancer` path is already validated end to end
+- adding ingress now would also add DNS, TLS, host routing, and another controller to validate
+- Argo CD does not need public exposure for the assignment because port-forward already gives an authenticated management path
+
+When a shared ingress becomes the better choice:
+
+- if both Dagster and Argo CD need polished external access at the same time
+- if TLS and host-based routing become part of the review requirement
+- if repeated `LoadBalancer` teardown friction becomes more expensive than running a lightweight ingress controller
+
 ## Provisioning
 
 ### Prerequisites
@@ -856,6 +874,17 @@ Why I would revisit it later:
 - an ingress controller becomes more attractive once there are multiple services to expose
 - it gives better control over host-based routing, TLS policy, and access controls
 - it is the cleaner path if Grafana, Argo CD, and Dagster all need polished external access patterns
+
+Decision:
+
+- for this exercise, keep the current `LoadBalancer` for Dagster and keep Argo CD internal or port-forwarded
+- for a production-leaning next step, move Dagster and Argo CD behind a shared ingress controller with TLS and host-based routing
+
+Why not switch now:
+
+- the current approach is already validated
+- the ingress story would add controller installation, DNS, certificates, and more teardown surface
+- those concerns are real, but they are secondary to finishing alert validation and submission-quality polish
 
 ### Demo-Scoped Choices
 

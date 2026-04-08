@@ -415,6 +415,11 @@ Why:
 - Kubernetes-created AWS load balancers can outlive the cluster for several minutes
 - their ENIs and security groups block subnet, internet gateway, and VPC deletion
 
+Current recommendation:
+
+- keep this `LoadBalancer` cleanup step because Dagster still uses direct `LoadBalancer` exposure in the exercise profile
+- revisit this section only after a shared ingress controller replaces the current external-access path
+
 ### 10.2 Verify the AWS load balancer is gone
 
 ```bash
