@@ -303,6 +303,17 @@ Recommended first UI configuration:
    - one required rule for Dagster job failure
    - optional follow-ups for Alloy auth/export issues and missing workload logs
 
+Decision for now:
+
+- keep alerting UI-managed in Grafana Cloud for this exercise
+- do not add alert-as-code tooling until there is a stronger reason than the current single-environment demo flow
+
+Revisit that decision only if one of these becomes true:
+
+- the alert pack grows beyond the documented first set
+- multiple environments need the same alert rules promoted predictably
+- notification policies and contact points change often enough that manual UI drift becomes painful
+
 Suggested first Dagster alert rule:
 
 - name: `Dagster Job Failure`

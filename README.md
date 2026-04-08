@@ -254,6 +254,24 @@ Suggested notification model:
 - one default notification policy for `severity=warning`
 - one dedicated policy for `service=dagster` so job failures do not mix with general platform noise
 
+Decision for this repo:
+
+- keep Grafana Cloud alerting UI-managed for the exercise and current demo scope
+- do not introduce alert-as-code yet
+
+Why this is the right trade-off now:
+
+- the rule set is still intentionally small
+- only one environment needs live alert validation for the assignment
+- UI configuration is faster to validate than introducing a new provisioning path
+- the repo already documents the intended rules, labels, queries, and validation flow, so the operational intent is still captured in Git
+
+When to revisit alert-as-code:
+
+- if the alert set grows beyond the small first pack documented here
+- if multiple environments need the same rules promoted consistently
+- if contact points, policies, and alert routing begin changing often enough that UI drift becomes a real maintenance problem
+
 ### Secrets Management
 
 AWS Secrets Manager is the source of truth for:
