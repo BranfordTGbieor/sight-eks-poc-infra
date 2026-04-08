@@ -26,13 +26,11 @@ The Dagster application source code, tests, and container build live in the sepa
 - [Repository Layout](#repository-layout)
 - [Architecture](#architecture)
 - [Deployment Model](#deployment-model)
-- [Operational Decisions](#operational-decisions)
+- [Design Notes](#design-notes)
 - [Provisioning](#provisioning)
 - [Usage and Validation](#usage-and-validation)
 - [CI and Delivery](#ci-and-delivery)
 - [Security](#security)
-- [Cost Justification and Trade-Offs](#cost-justification-and-trade-offs)
-- [Backup, Restore, and Upgrade Notes](#backup-restore-and-upgrade-notes)
 - [Submission Checklist](#submission-checklist)
 - [Destroy](#destroy)
 
@@ -64,19 +62,6 @@ This repo is the infrastructure half of a split-repo model:
 | Data Lake | S3-backed raw, staging, and curated layers | Supports the layered Dagster sample pipeline and future dbt work |
 | Observability | Grafana Cloud + Alloy | Keeps demo observability lightweight while preserving centralized logs |
 | CI/CD | GitHub Actions | Separate infra validation and governed Terraform delivery |
-
-## Assignment Coverage
-
-| Assignment area | What this repo implements | Current status |
-| --- | --- | --- |
-| Provision infrastructure with Terraform | VPC, EKS, managed node group, RDS PostgreSQL, S3 lake bucket, IAM, and supporting platform resources | Implemented and validated |
-| Deploy Dagster on EKS | Helm-packaged Dagster webserver, daemon, migration job, and gRPC user-code workload | Implemented and validated |
-| Use PostgreSQL for Dagster metadata | Amazon RDS PostgreSQL with secrets delivered through External Secrets | Implemented and validated |
-| Expose the Dagster UI | Kubernetes `LoadBalancer` service for demo access | Implemented and validated |
-| Run a dummy data pipeline | Split-repo flow with `hydrosat-data` image, sample ingestion, and staged/curated outputs in S3 | Implemented and validated |
-| Monitor and observe the platform | Alloy shipping pod logs, Dagster workload logs, events, and self-metrics to Grafana Cloud | Implemented and validated |
-| Alert on Dagster job failure | Grafana Cloud alert design documented with validated failure log signal | Design validated, notification delivery still pending |
-| Document architecture and usage | End-to-end README, runbook, and repo-native smoke check | Implemented |
 
 ## Repository Layout
 
@@ -219,134 +204,9 @@ Current coverage includes:
 
 This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a useful platform-level baseline for a demo and for Grafana Cloud alerting without duplicating low-value infrastructure metrics that AWS already exposes elsewhere.
 
-## Operational Decisions
+## Design Notes
 
-### Job Failure Alerting
-
-Dagster remains the source of truth for job-failure semantics. The chart still supports an Alertmanager URL, but the default GitOps profile leaves it blank so the platform can come up without the heavier in-cluster alerting stack.
-
-That keeps the demo bootstrap cheaper and simpler while leaving room to add Grafana Cloud alerting or a separate alerting path later.
-
-Current recommendation:
-
-- use Grafana Cloud-managed alerting for this repo's default observability path
-- manage the first Grafana Cloud alerting resources through the separate `grafana/` Terraform root
-- keep in-cluster Alertmanager out of the default profile
-- document the chosen rules, contact points, and notification-policy shape in this repo
-
-Recommended first alert set:
-
-- Alloy export/auth failures
-- Dagster webserver unavailable
-- Dagster daemon unavailable
-- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki
-- absence of expected Dagster workload logs over a recent window
-
-Recommended implementation order:
-
-1. Dagster run failure log alert
-2. Dagster webserver unavailable alert
-3. Dagster daemon unavailable alert
-4. Alloy export/auth failure alert
-5. missing Dagster workload log heartbeat alert
-
-Suggested notification model:
-
-- one low-noise contact point for the exercise, such as email or Slack
-- one default notification policy for `severity=warning`
-- one dedicated policy for `service=dagster` so job failures do not mix with general platform noise
-
-Decision for this repo:
-
-- use alert-as-code for the small first Grafana Cloud alert pack through the separate `grafana/` Terraform root
-- keep the scope intentionally small and avoid a larger alerting platform refactor
-
-Why this is the right trade-off now:
-
-- the rule set is still intentionally small
-- only one environment needs live alert validation for the assignment
-- the Terraform root is isolated from the main AWS state, so it does not complicate platform apply/destroy
-- it keeps alert intent, queries, and routing under version control instead of depending on manual UI drift
-
-Guardrails:
-
-- keep the current Terraform-managed scope to one contact point, one notification-policy branch, and one Dagster failure rule
-- revisit the design only if the alert set becomes large enough to justify modules, multiple policy branches, or environment-specific promotion logic
-
-### Secrets Management
-
-AWS Secrets Manager is the source of truth for:
-
-- Dagster database credentials
-- Grafana Cloud logs and metrics credentials
-
-External Secrets Operator syncs those values into Kubernetes Secrets.
-
-Relevant resources:
-
-- `gitops/external-secrets/cluster-secret-store.yaml`
-- `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/grafana-cloud-external-secret.yaml`
-
-This is materially better than embedding Grafana Cloud endpoints or tokens directly in Helm values or committing them into Git.
-
-### Data Lake Storage
-
-The platform now provisions an S3-backed data lake bucket for the Dagster sample pipeline.
-
-Current logical layout:
-
-- `raw/satellite_observations/...`
-- `staging/satellite_observations/...`
-- `curated/tile_summary/...`
-
-Dagster accesses the bucket through an IRSA-bound service account role rather than static AWS credentials.
-The paired `hydrosat-data` repo now uses Python for `raw` ingestion and dbt-backed DuckDB transforms for the `staging` and `curated` layers before exporting those results back into the lake layout.
-
-### Secret Rotation Lifecycle
-
-Secret rotation behavior is explicit:
-
-- Dagster DB secret refresh interval: `1h`
-- Grafana Cloud secret refresh interval: `15m`
-
-Operational model:
-
-1. Rotate or update the value in AWS Secrets Manager.
-2. Wait for External Secrets to reconcile the Kubernetes Secret.
-3. Restart Alloy workloads if Grafana Cloud credentials changed, because the credentials are loaded through `envFrom`.
-4. Restart Dagster workloads if the rotated value affects environment-sourced database credentials.
-5. Validate application health and observability export.
-
-### Networking and Access
-
-Networking decisions:
-
-- two public and two private subnets across AZs
-- EKS worker nodes in private subnets
-- single NAT gateway to stay cost-conscious for the exercise
-- Dagster UI exposed through a Kubernetes `LoadBalancer`
-- EKS private endpoint access enabled, with public access still available for easier bootstrap
-
-The public endpoint can be narrowed through `cluster_endpoint_public_access_cidrs`. For a longer-lived environment, I would typically disable public endpoint access after bootstrap.
-
-External access decision:
-
-- keep the current Dagster `LoadBalancer` plus Argo CD port-forward model for the exercise
-- do not introduce a shared ingress controller yet
-
-Why this is the right short-term choice:
-
-- the assignment only requires that the Dagster UI be reachable
-- the direct `LoadBalancer` path is already validated end to end
-- adding ingress now would also add DNS, TLS, host routing, and another controller to validate
-- Argo CD does not need public exposure for the assignment because port-forward already gives an authenticated management path
-
-When a shared ingress becomes the better choice:
-
-- if both Dagster and Argo CD need polished external access at the same time
-- if TLS and host-based routing become part of the review requirement
-- if repeated `LoadBalancer` teardown friction becomes more expensive than running a lightweight ingress controller
+For design choices, trade-offs, production considerations, and implementation rationale, see [design-notes.md](./design-notes.md).
 
 ## Provisioning
 
@@ -565,65 +425,17 @@ Validation flow:
 
 Recommended first alerting flow in Grafana Cloud:
 
-1. Create contact points and notification policies in Grafana Cloud.
-2. Add a small first set of alert rules based on the exported metrics and logs, starting with the Dagster `RUN_FAILURE` log signal.
+1. Populate local inputs for the separate `grafana/` Terraform root.
+2. Apply the first alert pack as code.
 3. Trigger one controlled failure case from Dagster.
 4. Confirm the alert fires and reaches the expected notification target.
 
-For this exercise, manual alert configuration in the Grafana Cloud UI is acceptable and keeps the repo simpler. If the alert footprint grows, the next step would be to evaluate whether alert provisioning should move into code.
+See [design-notes.md](./design-notes.md) and [grafana/README.md](./grafana/README.md) for the current alerting design and provisioning approach.
 
 Current gap:
 
 - log ingestion and controlled failure detection are validated
 - notification delivery is still the remaining alerting step to close
-
-Suggested first Grafana Cloud alert pack:
-
-1. Dagster job failure
-
-LogQL:
-
-```logql
-sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job" [5m])) > 0
-```
-
-Intent:
-
-- page or notify whenever the demo job records a Dagster `RUN_FAILURE`
-
-2. Dagster webserver unavailable
-
-PromQL:
-
-```promql
-up{namespace="dagster"} == 0
-```
-
-Use only if the exported metrics include a stable Dagster target; otherwise keep this as a later follow-up.
-
-3. Dagster daemon unavailable
-
-PromQL:
-
-```promql
-up{namespace="dagster"} == 0
-```
-
-Again, keep this metrics-based only if the target labels exist consistently in Grafana Cloud.
-
-4. Alloy export/auth failures
-
-Signal:
-
-- use Alloy logs and look for authentication or remote-write failures after a secret change or cluster bring-up
-
-5. Missing Dagster workload logs
-
-Signal:
-
-- alert if no `dagster` workload logs appear during an expected validation window
-
-For the exercise, the only must-have alert to close the assignment is the Dagster failure alert. The others are the sensible first follow-ups.
 
 ### Local Verification
 
@@ -788,134 +600,6 @@ Resource tags include:
 - `Name`
 
 `extra_tags` remains available for cost center, owner, or compliance metadata.
-
-## Cost Justification and Trade-Offs
-
-### Sizing
-
-Current demo defaults are intentionally modest:
-
-- EKS node group: `t3.small`, `min=2`, `desired=2`, `max=3`
-- RDS: PostgreSQL 16 on `db.t4g.micro`, `Multi-AZ = false`
-- VPC Flow Logs: enabled with `7d` retention
-- RDS Performance Insights: disabled
-- RDS Enhanced Monitoring: disabled
-- observability data plane: Grafana Cloud-managed, with Alloy shipping logs out of cluster
-
-The goal is to keep the review environment inexpensive without changing the overall platform shape.
-
-### Demo vs Production Defaults
-
-| Area | Demo default in repo | Production-leaning recommendation | Why |
-| --- | --- | --- | --- |
-| EKS nodes | `t3.small`, `min=2`, `desired=2`, `max=3` | start at `min=2`, `desired=2`, `max=4+` with sizing based on real load | two nodes are still the minimum sane baseline once Dagster, Argo CD, and observability share a cluster |
-| RDS topology | `db.t4g.micro`, `Multi-AZ = false` | `db.t4g.small` or higher, `Multi-AZ = true` | the demo optimizes cost; production should optimize availability first |
-| RDS storage | `20 GiB`, autoscale to `100 GiB` | keep autoscaling, raise floor only if usage justifies it | autoscaling is already the better pattern than fixed overprovisioning |
-| VPC Flow Logs | enabled, `7d` retention | `30d+` retention or org-standard log archival | short retention preserves the network-visibility story without paying for a long audit window |
-| RDS telemetry | Performance Insights and Enhanced Monitoring disabled | enable both when deeper DB troubleshooting justifies the spend | optional RDS telemetry is easy to restore later, but not necessary for a short-lived demo |
-| Observability | Grafana Cloud for logs, no heavy local LGTM stack by default | choose Grafana Cloud or a right-sized self-hosted stack per environment | the demo path optimizes for repeatable bring-up cost and lower cluster pressure |
-| Exposure | `LoadBalancer` for Dagster only | ingress controller plus TLS and host-based routing | direct exposure is simpler for review, ingress is cleaner once multiple services need external access |
-
-Why the EKS node group is sized this way:
-
-- `min=2` avoids a fragile single-node cluster and gives the control-plane addons, observability stack, and Dagster workloads room to spread
-- `desired=2` keeps the baseline cost stable while still supporting zone-aware scheduling and rolling updates
-- `max=3` provides limited burst headroom for upgrades, temporary rescheduling pressure, and demo load without turning this into an oversized cluster
-- `t3.small` is the cheapest worker size I would use here while still keeping the cluster private, multi-node, and capable of hosting Dagster plus the shared platform services
-
-Why the RDS instance is sized this way:
-
-- Dagster metadata traffic is light in this exercise, so `db.t4g.micro` is enough for orchestration state, run history, and event logs
-- Multi-AZ is disabled in the demo because it is one of the clearest avoidable cost multipliers in a short-lived review environment
-- storage starts at `20 GiB` on `gp3` and can autoscale to `100 GiB`, which is a better demo default than overprovisioning fixed storage up front
-- backup retention and CloudWatch log exports remain enabled because they keep the database operationally defensible without a large cost jump
-- Performance Insights and Enhanced Monitoring are disabled by default because they are useful but not essential for a short-lived review environment
-
-Production note:
-
-- for a longer-lived environment, I would flip `db_multi_az = true` immediately and revisit the instance class after observing real connection count, storage growth, and maintenance expectations
-
-This sizing is appropriate for a review environment while still showing the correct production direction: externalized metadata, multi-node cluster baseline, and room for controlled scale-out.
-
-### Network Telemetry
-
-- VPC Flow Logs stay enabled so the architecture still demonstrates a reasonable network-audit posture
-- retention is trimmed to `7` days because `365` days was unnecessary for a disposable demo environment
-- if the goal were absolute minimum cost, VPC Flow Logs are one of the first features I would disable entirely
-
-### Autoscaling Direction
-
-The current cluster uses managed node group scaling only:
-
-- floor: `2`
-- steady state: `2`
-- burst ceiling: `3`
-
-That is intentional for a take-home because it keeps behavior predictable during review. For a longer-lived environment, I would move toward:
-
-- pod-level autoscaling for stateless Dagster-facing services where metrics justify it
-- cluster-level node scaling with Karpenter or Cluster Autoscaler once workload patterns are better understood
-- separate sizing and scaling policies for observability components if they begin competing with Dagster workloads
-
-I would not add aggressive autoscaling sooner than that. Early over-automation tends to hide capacity assumptions instead of making them clearer.
-
-### Ingress and Exposure Trade-Offs
-
-The current repo exposes Dagster through a Kubernetes `LoadBalancer` service instead of introducing an ingress controller.
-
-Why this is acceptable here:
-
-- it keeps the bootstrap path simple
-- it makes the UI easy for a reviewer to access
-- it avoids adding another controller, another chart, and another TLS/DNS story before the core platform is complete
-
-Why I would revisit it later:
-
-- an ingress controller becomes more attractive once there are multiple services to expose
-- it gives better control over host-based routing, TLS policy, and access controls
-- it is the cleaner path if Grafana, Argo CD, and Dagster all need polished external access patterns
-
-Decision:
-
-- for this exercise, keep the current `LoadBalancer` for Dagster and keep Argo CD internal or port-forwarded
-- for a production-leaning next step, move Dagster and Argo CD behind a shared ingress controller with TLS and host-based routing
-
-Why not switch now:
-
-- the current approach is already validated
-- the ingress story would add controller installation, DNS, certificates, and more teardown surface
-- those concerns are real, but they are secondary to finishing alert validation and submission-quality polish
-
-### Demo-Scoped Choices
-
-These are deliberate trade-offs for the exercise:
-
-- same-cluster Argo CD rather than separate management cluster
-- Grafana Cloud rather than a heavier self-hosted LGTM stack by default
-- single NAT gateway rather than fully redundant NAT per AZ
-- public Dagster UI exposure via `LoadBalancer` for easier review
-
-## Backup, Restore, and Upgrade Notes
-
-### Backup and Restore
-
-- RDS automated backups remain enabled with a `7` day retention window
-- RDS snapshots inherit tags via `copy_tags_to_snapshot = true`
-- the Terraform state backend relies on S3 versioning and DynamoDB locking, so state recovery is separate from application recovery
-- for this demo, the most important restore validation is confirming Dagster can reconnect to RDS and resume scheduling after database recovery
-
-### Upgrade Posture
-
-- Terraform changes should continue to flow through `plan` before `apply`
-- Dagster schema changes are handled by the dedicated Helm migration job before the main workloads roll
-- GitOps-managed platform components should be upgraded by changing pinned chart versions or values in Git rather than through imperative `helm upgrade`
-- database class, topology, and storage changes should be treated as separate, reviewed changes because they can affect cost and availability behavior
-
-### Rollback Notes
-
-- application rollback should prefer reverting the GitOps commit and letting Argo CD reconcile back to the previous known-good state
-- alerting and secret configuration rollback should happen first in AWS Secrets Manager when the issue is secret-driven
-- database credential rollback still requires Dagster workloads to be restarted after External Secrets reconciles the old value
 
 ## Submission Checklist
 
