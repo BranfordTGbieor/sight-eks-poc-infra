@@ -500,6 +500,7 @@ Design choices:
 - PRs can run Terraform plan when delivery variables are configured
 - `apply` is separate from general CI
 - `apply` is intended to be protected by GitHub Environment approval rules
+- a gated post-apply stage bootstraps Argo CD and runs the repo smoke check
 - environment is derived from branch naming rather than manual workflow inputs
 
 Branch-to-environment mapping:

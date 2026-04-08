@@ -91,12 +91,7 @@ If `kubectl` points at an old destroyed cluster endpoint, rerun `aws eks update-
 Run from the `hydrosat-infra/` repo root:
 
 ```bash
-kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl wait --for=condition=Available deployment/argocd-server -n argocd --timeout=300s
-kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout=300s
-kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout=300s
-kubectl apply -f gitops/argocd/bootstrap/root-application.yaml
+./scripts/bootstrap-argocd.sh
 kubectl get pods -n argocd
 kubectl get applications -n argocd
 ```
@@ -105,6 +100,8 @@ Expected result:
 
 - Argo CD pods are `Running`
 - `hydrosat-root` appears in `argocd`
+
+In CI, the same bootstrap is now intended to run as a gated post-apply delivery stage after `Terraform Apply`.
 
 ## 5. Run the Smoke Check
 
@@ -128,6 +125,13 @@ If it fails, use the section outputs to decide whether the issue is:
 - External Secrets sync
 - Dagster rollout
 - Alloy rollout
+
+If you want the same readiness gate the CI workflow uses, run:
+
+```bash
+./scripts/wait-for-apps.sh
+./scripts/smoke-check.sh
+```
 
 ## 6. Baseline App Checks
 

@@ -257,6 +257,11 @@ Recommended shape:
    - run the repo smoke check
 3. operator reviews the resulting app health before moving on to deeper validation
 
+Current implementation status:
+
+- the workflow now includes a gated post-apply bootstrap job
+- the remaining work is live validation of that workflow path against a real environment
+
 Why this is better than the current manual-once flow:
 
 - the flow becomes repeatable

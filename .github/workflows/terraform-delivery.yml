@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -173,3 +173,95 @@ jobs:
       - name: Terraform apply
         working-directory: terraform
         run: terraform apply -input=false tfplan
+
+  bootstrap-gitops:
+    name: Bootstrap GitOps
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-context
+      - apply
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ needs.resolve-context.outputs.environment_name }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      GRAFANA_CLOUD_SECRET_ARN: ${{ vars.GRAFANA_CLOUD_SECRET_ARN }}
+      INFRA_REPO_URL: https://github.com/${{ github.repository }}.git
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write backend config
+        working-directory: terraform
+        run: |
+          cat > backend.ci.hcl <<EOF
+          bucket         = "${TF_STATE_BUCKET}"
+          dynamodb_table = "${TF_LOCK_TABLE}"
+          key            = "${TARGET_ENVIRONMENT}/platform.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          EOF
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -backend-config=backend.ci.hcl
+
+      - name: Validate required bootstrap inputs
+        run: |
+          if [ -z "${GRAFANA_CLOUD_SECRET_ARN}" ]; then
+            echo "GRAFANA_CLOUD_SECRET_ARN is not configured for this environment." >&2
+            exit 1
+          fi
+
+      - name: Sync live GitOps config
+        run: ./scripts/sync-live-config.sh
+
+      - name: Commit synced GitOps config if needed
+        run: |
+          if git diff --quiet; then
+            echo "No GitOps sync changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gitops helm/dagster/values-gitops.yaml scripts/sync-live-config.sh
+          git commit -m "Sync live GitOps environment values [skip ci]"
+          git push
+
+      - name: Refresh cluster access
+        run: aws eks update-kubeconfig --region "${AWS_REGION}" --name "$(terraform -chdir=terraform output -raw cluster_name)"
+
+      - name: Bootstrap Argo CD
+        run: ./scripts/bootstrap-argocd.sh
+
+      - name: Wait for core apps
+        run: ./scripts/wait-for-apps.sh
+        env:
+          WAIT_FOR_APPS_TIMEOUT_SECONDS: "900"
+          WAIT_FOR_APPS_POLL_SECONDS: "15"
+
+      - name: Run smoke check
+        run: ./scripts/smoke-check.sh
+        env:
+          SMOKE_WAIT_TIMEOUT_SECONDS: "120s"
