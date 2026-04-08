@@ -172,10 +172,70 @@ jobs:
 
       - name: Terraform plan
         working-directory: terraform
-        run: terraform plan -no-color -input=false | tee terraform-plan.txt
+        run: |
+          terraform plan -out=tfplan -input=false
+          terraform show -no-color tfplan > terraform-plan.txt
+
+      - name: Publish Terraform plan summary
+        working-directory: terraform
+        run: |
+          terraform show -json tfplan > tfplan.json
+
+          jq -r '
+            def normalize_action(actions):
+              if actions == ["create"] then "create"
+              elif actions == ["update"] then "update"
+              elif actions == ["delete"] then "delete"
+              elif actions == ["create","delete"] or actions == ["delete","create"] then "replace"
+              elif actions == ["no-op"] then "no-op"
+              else (actions | join(","))
+              end;
+            [
+              .resource_changes[]
+              | {
+                  address,
+                  action: normalize_action(.change.actions)
+                }
+              | select(.action != "no-op")
+            ] as $changes
+            | {
+                create: ($changes | map(select(.action == "create")) | length),
+                update: ($changes | map(select(.action == "update")) | length),
+                delete: ($changes | map(select(.action == "delete")) | length),
+                replace: ($changes | map(select(.action == "replace")) | length),
+                rows: ($changes | sort_by(.action, .address))
+              }
+          ' tfplan.json > tfplan-summary.json
+
+          {
+            echo "## Terraform Plan Summary"
+            echo
+            echo "| Action | Count |"
+            echo "| --- | ---: |"
+            echo "| Create | $(jq -r '.create' tfplan-summary.json) |"
+            echo "| Update | $(jq -r '.update' tfplan-summary.json) |"
+            echo "| Delete | $(jq -r '.delete' tfplan-summary.json) |"
+            echo "| Replace | $(jq -r '.replace' tfplan-summary.json) |"
+            echo
+            echo "### Resource Changes"
+            echo
+            echo "| Action | Address |"
+            echo "| --- | --- |"
+            jq -r '.rows[:40][] | "| \(.action) | `\(.address)` |"' tfplan-summary.json
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          total_changes="$(jq -r '.rows | length' tfplan-summary.json)"
+          if [ "${total_changes}" -gt 40 ]; then
+            echo >> "${GITHUB_STEP_SUMMARY}"
+            echo "_Showing first 40 of ${total_changes} resource changes. Download the full plan artifact for the complete diff._" >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Upload reviewable plan artifact
         uses: actions/upload-artifact@v4
         with:
           name: ci-terraform-plan-${{ steps.resolve.outputs.environment_name }}
-          path: terraform/terraform-plan.txt
+          path: |
+            terraform/tfplan
+            terraform/tfplan.json
+            terraform/tfplan-summary.json
+            terraform/terraform-plan.txt

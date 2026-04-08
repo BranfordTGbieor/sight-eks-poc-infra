@@ -52,17 +52,16 @@ jobs:
           echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
           echo "delivery_enabled=${delivery_enabled}" >> "${GITHUB_OUTPUT}"
 
-  plan:
-    name: Terraform Plan
+  apply:
+    name: Terraform Apply
     runs-on: ubuntu-latest
     needs: resolve-context
-    if: needs.resolve-context.outputs.delivery_enabled == 'true'
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ needs.resolve-context.outputs.environment_name }}
     env:
       TF_IN_AUTOMATION: "true"
       TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
       GIT_REF_TAG: ${{ needs.resolve-context.outputs.git_ref_tag }}
-      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
-      TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
     steps:
       - name: Checkout
@@ -95,8 +94,8 @@ jobs:
         working-directory: terraform
         run: |
           cat > backend.ci.hcl <<EOF
-          bucket         = "${TF_STATE_BUCKET}"
-          dynamodb_table = "${TF_LOCK_TABLE}"
+          bucket         = "${{ vars.TF_STATE_BUCKET }}"
+          dynamodb_table = "${{ vars.TF_LOCK_TABLE }}"
           key            = "${TARGET_ENVIRONMENT}/platform.tfstate"
           region         = "${AWS_REGION}"
           encrypt        = true
@@ -106,70 +105,9 @@ jobs:
         working-directory: terraform
         run: terraform init -backend-config=backend.ci.hcl
 
-      - name: Terraform plan
-        working-directory: terraform
-        run: terraform plan -out=tfplan -input=false
-
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan-${{ needs.resolve-context.outputs.environment_name }}
-          path: |
-            terraform/tfplan
-            terraform/ci.auto.tfvars
-            terraform/backend.ci.hcl
-
-  plan-skipped:
-    name: Terraform Plan Skipped
-    runs-on: ubuntu-latest
-    needs: resolve-context
-    if: needs.resolve-context.outputs.delivery_enabled != 'true'
-    steps:
-      - name: Explain skip
-        run: |
-          echo "Terraform delivery is not configured."
-          echo "Set repository or environment variables AWS_TERRAFORM_ROLE_ARN, TF_STATE_BUCKET, and TF_LOCK_TABLE to enable CI-managed plans/applies."
-
-  apply:
-    name: Terraform Apply
-    runs-on: ubuntu-latest
-    needs:
-      - resolve-context
-      - plan
-    if: github.event_name == 'workflow_dispatch'
-    environment: ${{ needs.resolve-context.outputs.environment_name }}
-    env:
-      TF_IN_AUTOMATION: "true"
-      TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.8.5
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Download reviewed plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan-${{ needs.resolve-context.outputs.environment_name }}
-          path: terraform
-
-      - name: Terraform init
-        working-directory: terraform
-        run: terraform init -backend-config=backend.ci.hcl
-
       - name: Terraform apply
         working-directory: terraform
-        run: terraform apply -input=false tfplan
+        run: terraform apply -input=false -auto-approve
 
   bootstrap-gitops:
     name: Bootstrap GitOps
@@ -226,14 +164,14 @@ jobs:
       - name: Resolve Grafana Cloud secret ARN
         run: |
           secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
-          secret_arn="$(aws secretsmanager describe-secret \
+          secret_arn="$(aws secretsmanager list-secrets \
             --region "${AWS_REGION}" \
-            --secret-id "${secret_name}" \
-            --query ARN \
+            --filters Key=name,Values="${secret_name}" \
+            --query 'sort_by(SecretList,&CreatedDate)[-1].ARN' \
             --output text)"
 
           if [ -z "${secret_arn}" ] || [ "${secret_arn}" = "None" ]; then
-            echo "Unable to resolve Grafana Cloud secret ARN for ${secret_name}." >&2
+            echo "Unable to resolve Grafana Cloud secret ARN for ${secret_name}. Ensure the environment-specific secret exists or set GRAFANA_CLOUD_SECRET_NAME." >&2
             exit 1
           fi
 
