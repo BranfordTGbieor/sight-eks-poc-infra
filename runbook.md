@@ -62,6 +62,11 @@ Expected result:
 - current Grafana Cloud secret ARN is written into the ExternalSecret resource
 - no live runtime placeholders remain in the bootstrap files
 
+Note:
+
+- for local/manual runs, export `GRAFANA_CLOUD_SECRET_ARN` explicitly
+- in the GitHub Actions delivery workflow, the ARN is resolved dynamically from the secret name `hydrosat/<env>/grafana-cloud` unless an override variable is configured
+
 Commit and push the sync if it changed tracked files:
 
 ```bash

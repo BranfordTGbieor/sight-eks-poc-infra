@@ -315,6 +315,9 @@ GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
 ./scripts/sync-live-config.sh
 ```
 
+For local/manual runs, exporting `GRAFANA_CLOUD_SECRET_ARN` is still the simplest path.
+In the GitHub Actions delivery workflow, the ARN is now resolved dynamically from AWS Secrets Manager using the environment-specific secret name `hydrosat/<env>/grafana-cloud`, with an optional override variable if naming differs.
+
 ### 7. Deploy with Argo CD
 
 This is the preferred steady-state path.
@@ -530,6 +533,7 @@ Recommended environment-scoped variables:
 - `TF_STATE_BUCKET`
 - `TF_LOCK_TABLE`
 - `AWS_REGION`
+- optional: `GRAFANA_CLOUD_SECRET_NAME` if your Secrets Manager naming does not follow `hydrosat/<env>/grafana-cloud`
 
 Recommended environment-scoped secrets when needed later:
 
@@ -570,7 +574,7 @@ Files refreshed by `./scripts/sync-live-config.sh`:
 Inputs required by the sync script:
 
 1. current Terraform outputs from the applied environment
-2. `GRAFANA_CLOUD_SECRET_ARN`
+2. `GRAFANA_CLOUD_SECRET_ARN` for local/manual runs
 
 The only intentionally generic chart placeholder left after that is:
 
