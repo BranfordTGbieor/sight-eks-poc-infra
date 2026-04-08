@@ -84,6 +84,7 @@ This repo is the infrastructure half of a split-repo model:
 | --- | --- |
 | `terraform/` | Main AWS platform stack |
 | `terraform/modules/` | Reusable infrastructure modules |
+| `grafana/` | Separate Terraform root for Grafana Cloud alerting resources |
 | `helm/dagster/` | Dagster Helm chart |
 | `gitops/argocd/` | Argo CD bootstrap, project, apps, and Helm values |
 | `gitops/external-secrets/` | Secret sync resources |
@@ -229,8 +230,9 @@ That keeps the demo bootstrap cheaper and simpler while leaving room to add Graf
 Current recommendation:
 
 - use Grafana Cloud-managed alerting for this repo's default observability path
-- configure alert rules and notification policies in Grafana Cloud first, rather than reintroducing in-cluster Alertmanager
-- document the chosen rules and contact points in this repo even if the first implementation is created through the Grafana Cloud UI
+- manage the first Grafana Cloud alerting resources through the separate `grafana/` Terraform root
+- keep in-cluster Alertmanager out of the default profile
+- document the chosen rules, contact points, and notification-policy shape in this repo
 
 Recommended first alert set:
 
@@ -256,21 +258,20 @@ Suggested notification model:
 
 Decision for this repo:
 
-- keep Grafana Cloud alerting UI-managed for the exercise and current demo scope
-- do not introduce alert-as-code yet
+- use alert-as-code for the small first Grafana Cloud alert pack through the separate `grafana/` Terraform root
+- keep the scope intentionally small and avoid a larger alerting platform refactor
 
 Why this is the right trade-off now:
 
 - the rule set is still intentionally small
 - only one environment needs live alert validation for the assignment
-- UI configuration is faster to validate than introducing a new provisioning path
-- the repo already documents the intended rules, labels, queries, and validation flow, so the operational intent is still captured in Git
+- the Terraform root is isolated from the main AWS state, so it does not complicate platform apply/destroy
+- it keeps alert intent, queries, and routing under version control instead of depending on manual UI drift
 
-When to revisit alert-as-code:
+Guardrails:
 
-- if the alert set grows beyond the small first pack documented here
-- if multiple environments need the same rules promoted consistently
-- if contact points, policies, and alert routing begin changing often enough that UI drift becomes a real maintenance problem
+- keep the current Terraform-managed scope to one contact point, one notification-policy branch, and one Dagster failure rule
+- revisit the design only if the alert set becomes large enough to justify modules, multiple policy branches, or environment-specific promotion logic
 
 ### Secrets Management
 
@@ -414,6 +415,7 @@ The GitOps flow expects:
 
 1. The RDS master secret created by Terraform.
 2. A separate secret for Grafana Cloud Loki credentials.
+3. A Grafana service account token for the separate `grafana/` alerting Terraform root if you want alert-as-code.
 
 Example Grafana Cloud logs secret payload:
 
@@ -633,6 +635,17 @@ This script is the fastest repo-native way to confirm that:
 - `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are healthy
 - External Secrets produced the expected Kubernetes Secrets
 - Dagster and Alloy baseline workloads are ready
+
+Grafana alerting as code:
+
+```bash
+cd grafana
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform plan
+```
+
+That separate root manages the first Grafana Cloud alerting resources without mixing them into the AWS infrastructure state.
 
 ## CI and Delivery
 

@@ -1,0 +1,18 @@
+grafana_url = "https://<stack>.grafana.net"
+
+# Create a Grafana service account token with alerting provisioning permissions.
+grafana_auth = "glsa_..."
+
+notification_email_addresses = [
+  "alerts@example.com",
+]
+
+# Export or inspect this from Grafana Cloud -> Connections -> Data sources -> Loki.
+loki_datasource_uid = "loki"
+
+cluster_name      = "hydrosat-dev-eks"
+dagster_namespace = "dagster"
+dagster_job_name  = "hydrosat_lakehouse_job"
+
+# Set to true only if you want to keep editing these resources in the UI.
+disable_provenance = false

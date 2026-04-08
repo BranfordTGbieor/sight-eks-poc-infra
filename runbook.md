@@ -274,7 +274,7 @@ kubectl rollout restart deployment/hydrosat-alloy -n monitoring
 
 ## 9.1 Grafana Cloud Alerting
 
-The current recommended alerting path is Grafana Cloud-managed alerting, not in-cluster Alertmanager.
+The current recommended alerting path is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root, not in-cluster Alertmanager.
 
 For this repo, the first alert set should be:
 
@@ -286,33 +286,23 @@ For this repo, the first alert set should be:
 
 Pragmatic first implementation:
 
-1. configure contact points and notification policies in the Grafana Cloud UI
-2. create a small alert set in Grafana Cloud using the exported metrics/logs
+1. populate `grafana/terraform.tfvars` with the Grafana URL, service account token, email addresses, and Loki data source UID
+2. apply the separate `grafana/` Terraform root
 3. start with a Dagster log alert on `RUN_FAILURE` for `hydrosat_lakehouse_job`
 4. document the chosen rules and thresholds in this repo after validation
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
 
-Recommended first UI configuration:
+Current Terraform-managed scope:
 
-1. create one exercise contact point:
-   - email or Slack
-2. add a notification policy for:
+1. one exercise contact point:
+   - email
+2. one notification-policy branch:
    - `service=dagster`
-3. keep the first rule set intentionally small:
-   - one required rule for Dagster job failure
-   - optional follow-ups for Alloy auth/export issues and missing workload logs
+3. one required rule:
+   - `Dagster Job Failure`
 
-Decision for now:
-
-- keep alerting UI-managed in Grafana Cloud for this exercise
-- do not add alert-as-code tooling until there is a stronger reason than the current single-environment demo flow
-
-Revisit that decision only if one of these becomes true:
-
-- the alert pack grows beyond the documented first set
-- multiple environments need the same alert rules promoted predictably
-- notification policies and contact points change often enough that manual UI drift becomes painful
+Keep the scope this small until live validation is complete.
 
 Suggested first Dagster alert rule:
 
@@ -330,7 +320,7 @@ sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_compon
 
 Expected validation:
 
-1. save the rule
+1. apply the `grafana/` Terraform root
 2. trigger the controlled failure in Dagster with `should_fail: true`
 3. confirm the rule enters firing state
 4. confirm the notification reaches the configured contact point
