@@ -229,4 +229,37 @@ If this moved beyond an exercise, the first improvements would be:
 3. tighten EKS public API exposure after bootstrap
 4. raise RDS availability posture with Multi-AZ and revisit instance sizing
 5. add stronger post-apply automation and smoke tests
-6. decide whether Argo CD bootstrap should remain manual or become a gated post-apply step
+6. move Argo CD bootstrap into a gated post-apply delivery step
+
+## Delivery Decisions
+
+### Argo CD Bootstrap
+
+Decision:
+
+- Argo CD bootstrap should become a gated post-apply step
+- it should not be folded directly into the main AWS Terraform root
+
+Why:
+
+- Terraform should remain responsible for cloud infrastructure lifecycle
+- Argo CD bootstrap is an operational handoff into the GitOps control plane, not a pure cloud resource concern
+- keeping bootstrap as a gated post-apply step preserves reviewability while avoiding a tighter coupling between AWS infra apply and cluster workload bootstrap
+
+Recommended shape:
+
+1. `Terraform Delivery` completes and passes the environment gate
+2. a reviewed post-apply stage runs:
+   - sync live GitOps values if needed
+   - refresh kubeconfig
+   - install or verify Argo CD
+   - apply the root application
+   - run the repo smoke check
+3. operator reviews the resulting app health before moving on to deeper validation
+
+Why this is better than the current manual-once flow:
+
+- the flow becomes repeatable
+- the bootstrap steps remain explicit and reviewable
+- the smoke check gives a better handoff point than a loosely documented set of shell commands
+- it aligns with the existing GitHub Environment approval model already documented in the repo

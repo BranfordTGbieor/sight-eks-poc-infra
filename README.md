@@ -543,6 +543,7 @@ Expected operator flow:
 4. trigger `Terraform Delivery` manually when ready
 5. approve the environment gate in GitHub
 6. let `Terraform Apply` run with the reviewed plan artifact
+7. run the gated post-apply Argo CD bootstrap and smoke-check stage
 
 ### Release Ownership Model
 
