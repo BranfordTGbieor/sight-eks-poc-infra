@@ -520,6 +520,19 @@ terraform init -backend=false
 terraform validate
 ```
 
+Post-apply smoke check:
+
+```bash
+./scripts/smoke-check.sh
+```
+
+This script is the fastest repo-native way to confirm that:
+
+- Argo CD is reachable and core controllers are available
+- `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are healthy
+- External Secrets produced the expected Kubernetes Secrets
+- Dagster and Alloy baseline workloads are ready
+
 ## CI and Delivery
 
 ### CI Workflow

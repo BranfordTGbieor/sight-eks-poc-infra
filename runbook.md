@@ -6,10 +6,11 @@ This is intentionally shorter than the earlier validation-heavy version. It focu
 
 1. sync live values into GitOps
 2. bootstrap Argo CD
-3. verify External Secrets
-4. verify Dagster
-5. verify Alloy log shipping to Grafana Cloud
-6. use the recovery steps only if a known failure reappears
+3. run the repo smoke check
+4. verify External Secrets
+5. verify Dagster
+6. verify Alloy log shipping to Grafana Cloud
+7. use the recovery steps only if a known failure reappears
 
 This runbook assumes:
 
@@ -105,7 +106,30 @@ Expected result:
 - Argo CD pods are `Running`
 - `hydrosat-root` appears in `argocd`
 
-## 5. Baseline App Checks
+## 5. Run the Smoke Check
+
+Run the repo smoke check once Argo CD has bootstrapped:
+
+```bash
+./scripts/smoke-check.sh
+```
+
+Expected result:
+
+- the cluster is reachable
+- Argo CD core deployments are available
+- `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are `Synced / Healthy`
+- External Secrets, Dagster, and Alloy baseline resources exist and are ready
+
+If it fails, use the section outputs to decide whether the issue is:
+
+- cluster access
+- Argo CD bootstrap
+- External Secrets sync
+- Dagster rollout
+- Alloy rollout
+
+## 6. Baseline App Checks
 
 ```bash
 kubectl get applications -n argocd
@@ -121,7 +145,7 @@ Expected steady-state target:
 - Dagster webserver and user-code are running in `dagster`
 - Alloy is running in `monitoring`
 
-## 6. External Secrets Checks
+## 7. External Secrets Checks
 
 ```bash
 kubectl get externalsecret -A
@@ -151,7 +175,7 @@ Known failure patterns:
   - Grafana Cloud token scope is wrong
   - use `logs:write` and `metrics:write`, then restart Alloy after the secret refresh
 
-## 7. Dagster Checks
+## 8. Dagster Checks
 
 ```bash
 kubectl get jobs,pods,svc -n dagster
@@ -197,7 +221,7 @@ kubectl annotate externalsecret hydrosat-dagster-db -n dagster force-sync=$(date
   - `Too many pods`
   - `Insufficient memory`
 
-## 8. Grafana Cloud Observability Checks
+## 9. Grafana Cloud Observability Checks
 
 ```bash
 kubectl get applications -n argocd
@@ -248,7 +272,7 @@ kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring force-sync=
 kubectl rollout restart deployment/hydrosat-alloy -n monitoring
 ```
 
-## 8.1 Grafana Cloud Alerting
+## 9.1 Grafana Cloud Alerting
 
 The current recommended alerting path is Grafana Cloud-managed alerting, not in-cluster Alertmanager.
 
@@ -269,11 +293,11 @@ Pragmatic first implementation:
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
 
-## 9. Known Recovery Steps
+## 10. Known Recovery Steps
 
 Use these only if the normal bring-up path gets stuck.
 
-### 9.1 Old kubeconfig endpoint
+### 10.1 Old kubeconfig endpoint
 
 Symptom:
 
