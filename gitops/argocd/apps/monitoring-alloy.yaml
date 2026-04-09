@@ -10,13 +10,13 @@ spec:
   sources:
     - repoURL: https://grafana.github.io/helm-charts
       chart: alloy
-      targetRevision: 1.5.3
+      targetRevision: dev
       helm:
         releaseName: hydrosat-alloy
         valueFiles:
           - $values/gitops/argocd/values/alloy-values.yaml
     - repoURL: https://github.com/BranfordTGbieor/hydrosat-infra.git
-      targetRevision: HEAD
+      targetRevision: dev
       ref: values
   destination:
     server: https://kubernetes.default.svc
