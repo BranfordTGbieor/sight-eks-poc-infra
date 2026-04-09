@@ -160,6 +160,7 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
+      GITOPS_TARGET_REVISION: ${{ needs.resolve-context.outputs.git_ref_tag }}
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       INFRA_REPO_URL: https://github.com/${{ github.repository }}.git
       GRAFANA_CLOUD_SECRET_NAME_OVERRIDE: ${{ vars.GRAFANA_CLOUD_SECRET_NAME }}
