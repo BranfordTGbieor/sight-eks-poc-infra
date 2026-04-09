@@ -230,3 +230,33 @@ jobs:
         run: ./scripts/smoke-check.sh
         env:
           SMOKE_WAIT_TIMEOUT_SECONDS: "120s"
+
+      - name: Collect bootstrap diagnostics on failure
+        if: failure()
+        run: |
+          echo "== applications ==" 
+          kubectl get applications -n argocd || true
+
+          echo
+          echo "== hydrosat-external-secrets-resources ==" 
+          kubectl describe application hydrosat-external-secrets-resources -n argocd || true
+
+          echo
+          echo "== external secrets ==" 
+          kubectl get externalsecret -A || true
+
+          echo
+          echo "== hydrosat-dagster-db externalsecret ==" 
+          kubectl describe externalsecret hydrosat-dagster-db -n dagster || true
+
+          echo
+          echo "== hydrosat-grafana-cloud externalsecret ==" 
+          kubectl describe externalsecret hydrosat-grafana-cloud -n monitoring || true
+
+          echo
+          echo "== cluster secret stores ==" 
+          kubectl describe clustersecretstore -A || true
+
+          echo
+          echo "== external secrets operator logs ==" 
+          kubectl logs deployment/hydrosat-external-secrets -n external-secrets --tail=200 || true
