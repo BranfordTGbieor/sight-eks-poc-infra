@@ -4,6 +4,8 @@ set -euo pipefail
 
 failures=0
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT_SECONDS:-10s}"
+RESOURCE_WAIT_TIMEOUT_SECONDS="${SMOKE_RESOURCE_WAIT_TIMEOUT_SECONDS:-300}"
+RESOURCE_WAIT_POLL_SECONDS="${SMOKE_RESOURCE_WAIT_POLL_SECONDS:-10}"
 
 section() {
   printf '\n== %s ==\n' "$1"
@@ -27,6 +29,28 @@ check() {
   else
     fail "$description"
   fi
+}
+
+wait_for_check() {
+  local description="$1"
+  shift
+
+  local start_time
+  start_time="$(date +%s)"
+
+  while true; do
+    if "$@" >/dev/null 2>&1; then
+      pass "$description"
+      return 0
+    fi
+
+    if (( "$(date +%s)" - start_time >= RESOURCE_WAIT_TIMEOUT_SECONDS )); then
+      fail "$description"
+      return 1
+    fi
+
+    sleep "${RESOURCE_WAIT_POLL_SECONDS}"
+  done
 }
 
 require_tool() {
@@ -80,22 +104,22 @@ app_exists_check hydrosat-dagster
 app_exists_check hydrosat-alloy
 
 section "External Secrets"
-check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
-check "Grafana Cloud secret exists" kubectl get secret hydrosat-grafana-cloud -n monitoring
-check "dagster DB ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-dagster-db -n dagster -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
-check "Grafana Cloud ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-grafana-cloud -n monitoring -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
+wait_for_check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
+wait_for_check "Grafana Cloud secret exists" kubectl get secret hydrosat-grafana-cloud -n monitoring
+wait_for_check "dagster DB ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-dagster-db -n dagster -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
+wait_for_check "Grafana Cloud ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-grafana-cloud -n monitoring -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
 
 section "Dagster"
-check "dagster webserver deployment exists" kubectl get deployment hydrosat-dagster-webserver -n dagster
-check "dagster daemon deployment exists" kubectl get deployment hydrosat-dagster-daemon -n dagster
-check "dagster user-code deployment exists" kubectl get deployment hydrosat-dagster-user-code -n dagster
+wait_for_check "dagster webserver deployment exists" kubectl get deployment hydrosat-dagster-webserver -n dagster
+wait_for_check "dagster daemon deployment exists" kubectl get deployment hydrosat-dagster-daemon -n dagster
+wait_for_check "dagster user-code deployment exists" kubectl get deployment hydrosat-dagster-user-code -n dagster
 check "dagster webserver pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=webserver,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
 check "dagster daemon pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=daemon,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
 check "dagster user-code pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=user-code,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
-check "dagster webserver service exists" kubectl get service hydrosat-dagster-webserver -n dagster
+wait_for_check "dagster webserver service exists" kubectl get service hydrosat-dagster-webserver -n dagster
 
 section "Monitoring"
-check "Alloy deployment exists" kubectl get deployment hydrosat-alloy -n monitoring
+wait_for_check "Alloy deployment exists" kubectl get deployment hydrosat-alloy -n monitoring
 check "Alloy deployment is Available" kubectl wait --for=condition=Available deployment/hydrosat-alloy -n monitoring --timeout="${WAIT_TIMEOUT}"
 
 section "Summary"
