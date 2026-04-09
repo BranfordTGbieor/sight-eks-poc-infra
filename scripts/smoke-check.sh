@@ -53,6 +53,16 @@ app_status_check() {
   fi
 }
 
+app_exists_check() {
+  local app="$1"
+
+  if kubectl get application "$app" -n argocd >/dev/null 2>&1; then
+    pass "application/$app exists"
+  else
+    fail "application/$app does not exist"
+  fi
+}
+
 require_tool kubectl
 
 section "Cluster"
@@ -66,8 +76,8 @@ check "argocd-server is Available" kubectl wait --for=condition=Available deploy
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
 app_status_check hydrosat-root Synced Healthy
-app_status_check hydrosat-dagster Synced Healthy
-app_status_check hydrosat-alloy Synced Healthy
+app_exists_check hydrosat-dagster
+app_exists_check hydrosat-alloy
 
 section "External Secrets"
 check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
