@@ -84,12 +84,12 @@ Separation of concerns:
 
 ## Architecture
 
+### AWS Infrastructure
+
 ```mermaid
 flowchart LR
   Internet((Internet))
-  GH[GitHub Actions]
-  Registry[Dagster Image Registry]
-  GC[Grafana Cloud]
+  TF[Terraform]
 
   subgraph Region["AWS Region"]
     subgraph Network["Network Layer"]
@@ -140,9 +140,12 @@ flowchart LR
   IAM --> SM
   IAM --> Lake
 
-  GH --> EKS
-  Registry --> EKS
-  EKS --> GC
+  TF --> VPC
+  TF --> EKS
+  TF --> RDS
+  TF --> Lake
+  TF --> SM
+  TF --> IAM
 ```
 
 ## Deployment Model
@@ -214,6 +217,35 @@ The default observability path is now intentionally lighter:
 | Dashboards and exploration | Grafana Cloud |
 
 This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
+
+```mermaid
+flowchart LR
+  SM[Secrets Manager]
+  ESO[External Secrets]
+
+  subgraph Cluster["EKS Cluster"]
+    Dagster[Dagster Workloads]
+    Alloy[Alloy]
+    Events[Kubernetes Events]
+  end
+
+  subgraph GrafanaCloud["Grafana Cloud"]
+    Loki[Loki]
+    Grafana[Dashboards / Explore]
+    Alerting[Alerting Rules]
+  end
+
+  Slack[Slack]
+
+  SM --> ESO
+  ESO --> Alloy
+  Dagster --> Alloy
+  Events --> Alloy
+  Alloy --> Loki
+  Loki --> Grafana
+  Loki --> Alerting
+  Alerting --> Slack
+```
 
 Current coverage includes:
 
@@ -416,6 +448,37 @@ The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting De
 
 ## CI and Delivery
 
+```mermaid
+flowchart LR
+  Dev[dev branch]
+  QA[qa branch]
+  Main[main branch]
+
+  DataRepo[hydrosat-data]
+  DockerHub[Docker Hub]
+
+  InfraCI[CI workflow]
+  InfraDelivery[Infrastructure Delivery]
+  AlertDelivery[Grafana Alerting Delivery]
+
+  DataRepo -->|build and publish image| DockerHub
+  Dev --> InfraCI
+  QA --> InfraCI
+  Main --> InfraCI
+
+  Dev -->|manual delivery| InfraDelivery
+  QA -->|promotion by merge| InfraDelivery
+  Main -->|promotion by merge| InfraDelivery
+
+  DockerHub -->|image tag consumed by GitOps values| Dev
+  DockerHub -->|image tag consumed by GitOps values| QA
+  DockerHub -->|image tag consumed by GitOps values| Main
+
+  Dev -->|optional after infra is healthy| AlertDelivery
+  QA -->|optional after infra is healthy| AlertDelivery
+  Main -->|optional after infra is healthy| AlertDelivery
+```
+
 ### CI Workflow
 
 Branch CI lives in [ci.yml](.github/workflows/ci.yml).
@@ -517,31 +580,6 @@ The split-repo model is intended to mirror the cleaner long-term operating model
 - application changes build and publish a Dagster image from `hydrosat-data`
 - infrastructure changes own Helm values, Argo CD application state, and environment promotion in `hydrosat-infra`
 - version-tagged application releases automatically update the image tag consumed here through a bot commit in `hydrosat-infra`
-
-## Live Demo Placeholder Inventory
-
-Before a real demo deployment, keep the repo generic and use the sync helper to inject the current live values after each fresh Terraform apply.
-
-Files refreshed by `./scripts/sync-live-config.sh`:
-
-- `gitops/argocd/values/external-secrets-values.yaml`
-- `gitops/external-secrets/cluster-secret-store.yaml`
-- `gitops/external-secrets/dagster-db-external-secret.yaml`
-- `gitops/external-secrets/grafana-cloud-external-secret.yaml`
-- `gitops/argocd/values/alloy-values.yaml`
-- `helm/dagster/values-gitops.yaml`
-
-Inputs required by the sync script:
-
-1. current Terraform outputs from the applied environment
-2. `GRAFANA_CLOUD_SECRET_ARN` for local/manual runs
-
-The only intentionally generic chart placeholder left after that is:
-
-- `helm/dagster/values.yaml`
-  - `REPLACE_WITH_CONTAINER_IMAGE_REPOSITORY`
-
-That file is not the GitOps source of truth; Argo CD uses `helm/dagster/values-gitops.yaml`.
 
 ## Security
 
