@@ -9,9 +9,10 @@ variable "grafana_auth" {
   sensitive   = true
 }
 
-variable "notification_email_addresses" {
-  description = "Email addresses for the first exercise contact point."
-  type        = list(string)
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for the first Grafana contact point."
+  type        = string
+  sensitive   = true
 }
 
 variable "loki_datasource_uid" {

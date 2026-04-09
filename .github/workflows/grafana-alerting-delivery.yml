@@ -51,11 +51,11 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
       GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
-      GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON: ${{ vars.GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON }}
       GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
       GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
       GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
       GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+      GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,17 +64,12 @@ jobs:
         run: |
           missing=0
 
-          for key in GRAFANA_URL GRAFANA_LOKI_DATASOURCE_UID GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON GRAFANA_AUTH; do
+          for key in GRAFANA_URL GRAFANA_LOKI_DATASOURCE_UID GRAFANA_AUTH GRAFANA_SLACK_WEBHOOK_URL; do
             if [ -z "${!key}" ]; then
               echo "Missing required input: ${key}" >&2
               missing=1
             fi
           done
-
-          if ! echo "${GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON}" | jq -e 'if type == "array" and length > 0 then . else empty end' >/dev/null; then
-            echo "GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON must be a non-empty JSON array." >&2
-            missing=1
-          fi
 
           if [ "${missing}" -ne 0 ]; then
             exit 1
@@ -111,8 +106,8 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           grafana_url = "${GRAFANA_URL}"
           grafana_auth = "${GRAFANA_AUTH}"
+          slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
           loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
-          notification_email_addresses = ${GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON}
           cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
           dagster_namespace = "dagster"
           dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
