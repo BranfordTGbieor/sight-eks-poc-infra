@@ -85,45 +85,64 @@ Separation of concerns:
 ## Architecture
 
 ```mermaid
-flowchart TD
-  User[Engineer] -->|browser / kubectl / Argo CD| EKS[EKS Cluster]
+flowchart LR
+  Internet((Internet))
+  GH[GitHub Actions]
+  Registry[Dagster Image Registry]
+  GC[Grafana Cloud]
 
-  subgraph AWS
-    S3[S3 Terraform State]
-    Lake[(S3 Data Lake)]
-    DDB[DynamoDB Locks]
-    RDS[(RDS PostgreSQL)]
-    VPC[VPC]
-    NAT[NAT Gateway]
+  subgraph Region["AWS Region"]
+    subgraph Network["Network Layer"]
+      VPC[VPC]
+      IGW[Internet Gateway]
+      Pub[Public Subnets]
+      Priv[Private Subnets]
+      NAT[NAT Gateway]
+      Flow[VPC Flow Logs]
+    end
+
+    subgraph Compute["Compute Layer"]
+      EKS[EKS Cluster]
+      Nodes[Managed Node Group]
+      EBS[EBS CSI Add-on]
+    end
+
+    subgraph Data["Data Layer"]
+      RDS[(RDS PostgreSQL)]
+      Lake[(S3 Data Lake)]
+      Logs[(S3 Access-Log Bucket)]
+      SM[Secrets Manager]
+    end
+
+    subgraph Security["Access Layer"]
+      IAM[IAM Roles / IRSA]
+    end
   end
 
-  subgraph Registry
-    IMG[Dagster Container Image]
-  end
+  Internet --> IGW
+  IGW --> Pub
+  Pub --> NAT
+  NAT --> Priv
+  VPC --> Pub
+  VPC --> Priv
+  VPC --> Flow
 
-  Terraform[Terraform] --> S3
-  Terraform --> DDB
-  Terraform --> VPC
-  Terraform --> EKS
-  Terraform --> RDS
-  Terraform --> Lake
+  Priv --> EKS
+  EKS --> Nodes
+  EKS --> EBS
 
-  EKS --> Web[Dagster Webserver]
-  EKS --> Daemon[Dagster Daemon]
-  EKS --> UserCode[Dagster User Code]
-  EKS --> ArgoCD[Argo CD]
-  EKS --> Alloy[Alloy]
-  EKS --> ESO[External Secrets]
-  Alloy --> GC[Grafana Cloud Loki]
+  Nodes --> RDS
+  Nodes --> Lake
+  Lake --> Logs
+  Nodes --> SM
 
-  Web --> UserCode
-  Daemon --> UserCode
-  Web --> RDS
-  Daemon --> RDS
-  UserCode --> Lake
-  ESO --> RDS
-  ESO --> GC
-  IMG --> EKS
+  IAM --> EKS
+  IAM --> SM
+  IAM --> Lake
+
+  GH --> EKS
+  Registry --> EKS
+  EKS --> GC
 ```
 
 ## Deployment Model
