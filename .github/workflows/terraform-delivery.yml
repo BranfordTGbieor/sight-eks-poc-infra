@@ -1,4 +1,4 @@
-name: Terraform Delivery
+name: Infrastructure Delivery
 
 on:
   workflow_dispatch:
