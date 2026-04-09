@@ -87,6 +87,25 @@ app_exists_check() {
   fi
 }
 
+app_exists_and_healthy_check() {
+  local app="$1"
+  local sync health
+
+  if ! kubectl get application "$app" -n argocd >/dev/null 2>&1; then
+    fail "application/$app does not exist"
+    return 1
+  fi
+
+  sync="$(kubectl get application "$app" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+  health="$(kubectl get application "$app" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+
+  if [[ "$health" == "Healthy" && "$sync" == "Synced" ]]; then
+    pass "application/$app is Synced / Healthy"
+  else
+    fail "application/$app expected Synced / Healthy but saw ${sync:-<none>} / ${health:-<none>}"
+  fi
+}
+
 require_tool kubectl
 
 section "Cluster"
@@ -100,6 +119,8 @@ check "argocd-server is Available" kubectl wait --for=condition=Available deploy
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
 app_status_check hydrosat-root Synced Healthy
+app_exists_and_healthy_check hydrosat-external-secrets-operator
+app_exists_and_healthy_check hydrosat-external-secrets-resources
 app_exists_check hydrosat-dagster
 app_exists_check hydrosat-alloy
 

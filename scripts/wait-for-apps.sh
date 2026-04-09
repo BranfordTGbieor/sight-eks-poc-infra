@@ -8,6 +8,8 @@ START_TIME="$(date +%s)"
 
 root_app="hydrosat-root"
 child_apps=(
+  "hydrosat-external-secrets-operator"
+  "hydrosat-external-secrets-resources"
   "hydrosat-dagster"
   "hydrosat-alloy"
 )
