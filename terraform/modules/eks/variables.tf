@@ -61,7 +61,3 @@ variable "common_tags" {
 variable "enable_ebs_csi_driver" {
   type = bool
 }
-
-variable "cluster_admin_principal_arns" {
-  type = list(string)
-}

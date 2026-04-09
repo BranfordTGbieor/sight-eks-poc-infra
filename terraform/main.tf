@@ -36,7 +36,6 @@ module "eks" {
   cluster_version              = var.eks_cluster_version
   enable_kms_hardening         = var.enable_service_kms_hardening
   eks_secrets_kms_key_arn      = var.eks_secrets_kms_key_arn
-  cluster_admin_principal_arns = var.cluster_admin_principal_arns
   vpc_id                       = module.network.vpc_id
   cluster_subnet_ids           = concat(module.network.public_subnet_ids, module.network.private_subnet_ids)
   endpoint_private_access      = var.cluster_endpoint_private_access
