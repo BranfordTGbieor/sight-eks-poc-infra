@@ -105,6 +105,26 @@ jobs:
         working-directory: terraform
         run: terraform init -backend-config=backend.ci.hcl
 
+      - name: Import existing flow log group if needed
+        working-directory: terraform
+        run: |
+          log_group_name="/aws/vpc/hydrosat-${TARGET_ENVIRONMENT}/flow-logs"
+
+          if terraform state show 'module.network.aws_cloudwatch_log_group.flow_logs[0]' >/dev/null 2>&1; then
+            echo "Flow log group already tracked in Terraform state."
+            exit 0
+          fi
+
+          if aws logs describe-log-groups \
+            --region "${AWS_REGION}" \
+            --log-group-name-prefix "${log_group_name}" \
+            --query "logGroups[?logGroupName=='${log_group_name}'].logGroupName | [0]" \
+            --output text | grep -qx "${log_group_name}"; then
+            terraform import 'module.network.aws_cloudwatch_log_group.flow_logs[0]' "${log_group_name}"
+          else
+            echo "No pre-existing flow log group found for import."
+          fi
+
       - name: Terraform apply
         working-directory: terraform
         run: terraform apply -input=false -auto-approve
