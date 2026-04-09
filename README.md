@@ -18,7 +18,7 @@ This repository owns:
 - External Secrets resources
 - infrastructure CI and governed Terraform delivery
 
-The Dagster application source code, tests, and container build live in the separate `hydrosat-data` repository. This repo consumes a pre-built image and reconciles the platform state from Git.
+The Dagster application source code, tests, and container build live in the separate [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data) repository. This repo consumes a pre-built image and reconciles the platform state from Git.
 
 ## Table of Contents
 
@@ -31,8 +31,6 @@ The Dagster application source code, tests, and container build live in the sepa
 - [Usage and Validation](#usage-and-validation)
 - [CI and Delivery](#ci-and-delivery)
 - [Security](#security)
-- [Submission Checklist](#submission-checklist)
-- [Destroy](#destroy)
 
 ## Overview
 
@@ -75,6 +73,7 @@ This repo is the infrastructure half of a split-repo model:
 | `gitops/external-secrets/` | Secret sync resources |
 | `.github/workflows/ci.yml` | Infra validation workflow |
 | `.github/workflows/terraform-delivery.yml` | Governed Terraform plan/apply workflow |
+| `.github/workflows/grafana-alerting-delivery.yml` | Separate Grafana alerting plan/apply workflow |
 
 Separation of concerns:
 
@@ -168,12 +167,14 @@ Argo CD is the primary steady-state deployment path.
 
 Key manifests:
 
-- `gitops/argocd/bootstrap/root-application.yaml`
-- `gitops/argocd/apps/project.yaml`
-- `gitops/argocd/apps/hydrosat-dagster.yaml`
-- `gitops/argocd/apps/monitoring-alloy.yaml`
-- `gitops/argocd/apps/external-secrets-operator.yaml`
-- `gitops/argocd/apps/external-secrets-resources.yaml`
+| Manifest | Purpose |
+| --- | --- |
+| `gitops/argocd/bootstrap/root-application.yaml` | Seeds the Argo CD app-of-apps entrypoint |
+| `gitops/argocd/apps/project.yaml` | Defines the Argo CD project and repo boundaries |
+| `gitops/argocd/apps/hydrosat-dagster.yaml` | Reconciles the Dagster Helm release |
+| `gitops/argocd/apps/monitoring-alloy.yaml` | Reconciles the Alloy observability deployment |
+| `gitops/argocd/apps/external-secrets-operator.yaml` | Reconciles the External Secrets operator chart |
+| `gitops/argocd/apps/external-secrets-resources.yaml` | Reconciles the `ClusterSecretStore` and `ExternalSecret` resources |
 
 For this exercise, Argo CD runs in the same cluster it manages. That is a deliberate demo trade-off:
 
@@ -212,13 +213,14 @@ For design choices, trade-offs, production considerations, and implementation ra
 
 ### Prerequisites
 
-- AWS account and credentials
-- `terraform`
-- `aws`
-- `kubectl`
-- `helm`
-- `docker`
-- `jq`
+| Tool | Why it is needed |
+| --- | --- |
+| `☁️ AWS CLI` | authenticate to AWS and refresh kubeconfig |
+| `🏗️ Terraform` | provision and destroy the AWS platform stack |
+| `☸️ kubectl` | inspect and troubleshoot the cluster |
+| `⎈ Helm` | lint and render the Dagster chart locally |
+| `🐳 Docker` | work with the Dagster image flow when needed |
+| `🧰 jq` | inspect and manipulate JSON outputs during ops work |
 
 ### 1. Prepare Terraform Inputs
 
@@ -283,13 +285,13 @@ aws eks update-kubeconfig \
 
 ### 5. Prepare the Dagster Image
 
-The application image is expected to be built and published from `hydrosat-data`.
+The application image is expected to be built and published from [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data).
 
 This infra repo consumes an explicit image repository and tag through the Helm chart. In the implemented split-repo flow, `hydrosat-data` publishes application images to Docker Hub and version-tag releases trigger this repo to update the deployed image tag through GitOps-managed values.
 
-### 6. Prepare Secrets Manager Inputs
+### 6. Runtime Secrets and Bootstrap Inputs
 
-The GitOps flow expects:
+The repeatable bring-up path depends on:
 
 1. The RDS master secret created by Terraform.
 2. A separate secret for Grafana Cloud Loki credentials.
@@ -318,34 +320,7 @@ GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
 For local/manual runs, exporting `GRAFANA_CLOUD_SECRET_ARN` is still the simplest path.
 In the GitHub Actions delivery workflow, the ARN is now resolved dynamically from AWS Secrets Manager using the environment-specific secret name `hydrosat/<env>/grafana-cloud`, with an optional override variable if naming differs.
 
-### 7. Deploy with Argo CD
-
-This is the preferred steady-state path.
-
-Before bootstrap:
-
-1. Ensure the Grafana Cloud secret exists in AWS Secrets Manager.
-2. Run `./scripts/sync-live-config.sh` with the Grafana Cloud secret ARN exported.
-3. Review and commit the generated GitOps changes.
-
-Then apply the root application:
-
-```bash
-kubectl apply -f gitops/argocd/bootstrap/root-application.yaml
-```
-
-### 8. Deploy Imperatively with Helm
-
-This path is for local validation and break-glass troubleshooting, not steady-state operations.
-
-```bash
-helm upgrade --install hydrosat-dagster ./helm/dagster \
-  --namespace dagster \
-  --create-namespace \
-  --set image.repository="REPLACE_WITH_DAGSTER_IMAGE_REPOSITORY" \
-  --set image.tag=latest \
-  --set database.secretName=hydrosat-dagster-db
-```
+The detailed operator sequence for syncing live values, bootstrapping Argo CD, validating Dagster, checking Grafana Cloud ingestion, and tearing down cleanly lives in [runbook.md](./runbook.md).
 
 ## Usage and Validation
 
@@ -366,79 +341,17 @@ Local port-forward option:
 kubectl port-forward svc/hydrosat-dagster-webserver -n dagster 3000:80
 ```
 
-### Run the Demo Job
+The application-level demo job, run config, and pass/fail simulation live in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data). Keep Dagster job execution details in that repo, and use this repo to validate platform health, GitOps delivery, and observability plumbing.
 
-The demo job and its run config live in the separate `hydrosat-data` repository. The expected validation flow remains:
-
-- run with `should_fail: false` to prove normal execution
-- run with `should_fail: true` to trigger controlled failure and alert routing
-
-Validated state:
-
-- a successful Dagster run completed on the 3-node demo cluster
-- a controlled failure run completed with the expected Dagster `RUN_FAILURE`
-- the pipeline wrote demo data into the S3-backed lake layout
-- the application release and infra image-promotion workflow were exercised end to end
-
-Current validation status:
+Current validated state:
 
 - cluster bring-up is repeatable through Terraform, GitOps sync, Argo CD bootstrap, and the repo smoke check
 - Dagster steady state is healthy on the smaller 3-node cluster profile
 - success and controlled failure runs are both proven
 - Grafana Cloud ingestion of Dagster workload logs is proven
-- notification delivery from Grafana Cloud alerting is the main remaining live validation item
+- Grafana alerting-as-code is proven end to end through Slack delivery
 
-### Log Validation
-
-Validation flow:
-
-1. Confirm External Secrets is healthy.
-2. Confirm `hydrosat-dagster-db` exists in `dagster`.
-3. Confirm `hydrosat-grafana-cloud` exists in `monitoring`.
-4. Launch `hydrosat_lakehouse_job` from the Dagster UI or API.
-5. Confirm Dagster pods emit logs locally.
-6. Confirm Alloy forwards those logs to Grafana Cloud.
-7. Confirm Kubernetes events appear in Grafana Cloud logs.
-
-Useful LogQL examples:
-
-```logql
-{cluster="hydrosat-dev-eks", namespace="dagster", source="kubernetes_pod"}
-```
-
-```logql
-{cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job"
-```
-
-Validated result:
-
-- Dagster workload logs are queryable in Grafana Cloud Loki
-- Kubernetes event logs are queryable in Grafana Cloud Loki
-- the controlled failure run is visible from the `user-code` logs using `RUN_FAILURE`
-
-### Metrics Validation
-
-Validation flow:
-
-1. Confirm Alloy is running and healthy.
-2. Confirm Alloy self-metrics appear in Grafana Cloud Metrics.
-3. Confirm the exported labels are sufficient to distinguish cluster, namespace, and workload context.
-
-### Alert Validation
-
-Recommended first alerting flow in Grafana Cloud:
-
-1. Populate the separate `grafana/` Terraform root inputs or the matching GitHub Environment vars and secrets.
-2. Apply the first alert pack as code.
-3. Trigger one controlled failure case from Dagster.
-4. Confirm the alert fires and reaches the expected Slack channel.
-
-See [design-notes.md](./design-notes.md) and [grafana/README.md](./grafana/README.md) for the current alerting design and provisioning approach.
-
-Current gap:
-
-- log ingestion and controlled failure detection are validated
-- notification delivery is still the remaining alerting step to close
+For detailed bring-up checks, smoke-check interpretation, log validation, Grafana Cloud verification, and destroy-time cleanup steps, use [runbook.md](./runbook.md).
 
 ### Local Verification
 
@@ -634,28 +547,3 @@ Resource tags include:
 - `Name`
 
 `extra_tags` remains available for cost center, owner, or compliance metadata.
-
-## Submission Checklist
-
-- CI green on the branch being presented
-- Terraform defaults remain demo-safe and cost-conscious
-- README placeholders replaced where needed for the live demo environment
-- Argo CD bootstrap path and imperative fallback path both documented
-- Alert routing, secret management, and cost trade-offs are easy to explain in a walkthrough
-- destroy flow understood before leaving resources running in AWS
-
-## Destroy
-
-Imperative application cleanup:
-
-```bash
-helm uninstall hydrosat-dagster -n dagster
-terraform destroy
-```
-
-Optional remote backend cleanup:
-
-```bash
-aws dynamodb delete-table --table-name hydrosat-terraform-locks
-aws s3 rb s3://hydrosat-<unique-suffix>-tf-state --force
-```
