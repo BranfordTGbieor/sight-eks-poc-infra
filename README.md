@@ -537,6 +537,8 @@ Required GitHub Environment configuration:
 - secret: `GRAFANA_AUTH`
 - secret: `GRAFANA_SLACK_WEBHOOK_URL`
 
+`GRAFANA_AUTH` must be a Grafana stack service account token, for example `glsa_...`. Do not reuse the Grafana Cloud Loki or metrics ingestion credential from AWS Secrets Manager here; those are for in-cluster workload ingestion, not Terraform provider authentication.
+
 Values inferred automatically by the workflow:
 
 - target environment from branch name

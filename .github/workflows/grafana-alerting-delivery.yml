@@ -40,8 +40,8 @@ jobs:
           echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
           echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
 
-  apply:
-    name: Terraform Apply
+  plan:
+    name: Terraform Plan
     runs-on: ubuntu-latest
     needs: resolve-context
     environment: ${{ needs.resolve-context.outputs.environment_name }}
@@ -70,6 +70,161 @@ jobs:
               missing=1
             fi
           done
+
+          if [[ -n "${GRAFANA_AUTH}" && "${GRAFANA_AUTH}" != glsa_* ]]; then
+            echo "GRAFANA_AUTH does not look like a Grafana service account token. Use the stack service account token, not the Loki or metrics access-policy credential." >&2
+            missing=1
+          fi
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write backend config
+        working-directory: grafana
+        run: |
+          cat > backend.ci.hcl <<EOF
+          bucket         = "${TF_STATE_BUCKET}"
+          dynamodb_table = "${TF_LOCK_TABLE}"
+          key            = "${TARGET_ENVIRONMENT}/grafana-alerting.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          EOF
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
+
+      - name: Write CI tfvars
+        working-directory: grafana
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          grafana_url = "${GRAFANA_URL}"
+          grafana_auth = "${GRAFANA_AUTH}"
+          slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
+          loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
+          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          dagster_namespace = "dagster"
+          dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
+          alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"
+          disable_provenance = ${GRAFANA_DISABLE_PROVENANCE}
+          EOF
+
+      - name: Terraform init
+        working-directory: grafana
+        run: terraform init -backend-config=backend.ci.hcl
+
+      - name: Terraform plan
+        working-directory: grafana
+        run: |
+          terraform plan -out=tfplan -input=false
+          terraform show -no-color tfplan > terraform-plan.txt
+
+      - name: Publish Terraform plan summary
+        working-directory: grafana
+        run: |
+          terraform show -json tfplan > tfplan.json
+
+          jq -r '
+            def normalize_action(actions):
+              if actions == ["create"] then "create"
+              elif actions == ["update"] then "update"
+              elif actions == ["delete"] then "delete"
+              elif actions == ["create","delete"] or actions == ["delete","create"] then "replace"
+              elif actions == ["no-op"] then "no-op"
+              else (actions | join(","))
+              end;
+            [
+              .resource_changes[]
+              | {
+                  address,
+                  action: normalize_action(.change.actions)
+                }
+              | select(.action != "no-op")
+            ] as $changes
+            | {
+                create: ($changes | map(select(.action == "create")) | length),
+                update: ($changes | map(select(.action == "update")) | length),
+                delete: ($changes | map(select(.action == "delete")) | length),
+                replace: ($changes | map(select(.action == "replace")) | length),
+                rows: ($changes | sort_by(.action, .address))
+              }
+          ' tfplan.json > tfplan-summary.json
+
+          {
+            echo "## Grafana Alerting Plan Summary"
+            echo
+            echo "| Action | Count |"
+            echo "| --- | ---: |"
+            echo "| Create | $(jq -r '.create' tfplan-summary.json) |"
+            echo "| Update | $(jq -r '.update' tfplan-summary.json) |"
+            echo "| Delete | $(jq -r '.delete' tfplan-summary.json) |"
+            echo "| Replace | $(jq -r '.replace' tfplan-summary.json) |"
+            echo
+            echo "### Resource Changes"
+            echo
+            echo "| Action | Address |"
+            echo "| --- | --- |"
+            jq -r '.rows[:40][] | "| \(.action) | `\(.address)` |"' tfplan-summary.json
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload reviewable plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grafana-alerting-plan-${{ env.TARGET_ENVIRONMENT }}
+          path: |
+            grafana/tfplan
+            grafana/tfplan.json
+            grafana/tfplan-summary.json
+            grafana/terraform-plan.txt
+
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-context
+      - plan
+    environment: ${{ needs.resolve-context.outputs.environment_name }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+      GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+      GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required Grafana inputs
+        run: |
+          missing=0
+
+          for key in GRAFANA_URL GRAFANA_LOKI_DATASOURCE_UID GRAFANA_AUTH GRAFANA_SLACK_WEBHOOK_URL; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required input: ${key}" >&2
+              missing=1
+            fi
+          done
+
+          if [[ -n "${GRAFANA_AUTH}" && "${GRAFANA_AUTH}" != glsa_* ]]; then
+            echo "GRAFANA_AUTH does not look like a Grafana service account token. Use the stack service account token, not the Loki or metrics access-policy credential." >&2
+            missing=1
+          fi
 
           if [ "${missing}" -ne 0 ]; then
             exit 1

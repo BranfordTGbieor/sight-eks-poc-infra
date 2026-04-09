@@ -30,7 +30,7 @@ Populate:
 - `slack_webhook_url`
 - `loki_datasource_uid`
 
-The Grafana token should be a service account token with alerting provisioning permissions. The Slack webhook is the delivery target for the first alert pack. Grafana documents Terraform provisioning for alerting here:
+The Grafana token should be a Grafana stack service account token with alerting provisioning permissions. It is not the Loki or Prometheus access-policy credential stored in AWS Secrets Manager for in-cluster ingestion. The Slack webhook is the delivery target for the first alert pack. Grafana documents Terraform provisioning for alerting here:
 
 - https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/terraform-provisioning/
 - https://grafana.com/docs/grafana-cloud/as-code/infrastructure-as-code/
