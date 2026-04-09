@@ -8,6 +8,31 @@ resource "grafana_contact_point" "exercise_slack" {
 
   slack {
     url = var.slack_webhook_url
+    title = "{{ if eq .Status \"firing\" }}:rotating_light: Dagster job failure{{ else }}:white_check_mark: Dagster job recovered{{ end }} · {{ .CommonLabels.job }}"
+    text = <<-EOT
+      {{- if gt (len .Alerts.Firing) 0 -}}
+      *Status:* FIRING
+      {{- else -}}
+      *Status:* RESOLVED
+      {{- end }}
+      *Service:* {{ .CommonLabels.service }}
+      *Job:* {{ .CommonLabels.job }}
+      *Severity:* {{ .CommonLabels.severity }}
+
+      {{- range .Alerts.Firing }}
+      *Summary:* {{ index .Annotations "summary" }}
+      *Details:* {{ index .Annotations "description" }}
+      *Detected failures in last 5m:* {{ index .Annotations "failure_count" }}
+      *Cluster:* {{ index .Annotations "cluster" }}
+      *Namespace:* {{ index .Annotations "namespace" }}
+      {{- end }}
+
+      {{- if gt (len .Alerts.Resolved) 0 }}
+      {{- range .Alerts.Resolved }}
+      *Resolved:* {{ index .Annotations "summary" }}
+      {{- end }}
+      {{- end }}
+    EOT
   }
 }
 
@@ -56,7 +81,11 @@ resource "grafana_rule_group" "dagster" {
     }
 
     annotations = {
-      summary = "Dagster job failure detected for ${var.dagster_job_name}"
+      summary       = "Dagster job failure detected for ${var.dagster_job_name}"
+      description   = "Dagster emitted RUN_FAILURE for ${var.dagster_job_name} in ${var.dagster_namespace}. Investigate recent user-code logs and the Dagster run timeline."
+      failure_count = "{{ printf \"%.0f\" $values.A.Value }}"
+      cluster       = var.cluster_name
+      namespace     = var.dagster_namespace
     }
 
     data {
