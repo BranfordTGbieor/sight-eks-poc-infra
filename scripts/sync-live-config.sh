@@ -35,7 +35,9 @@ perl -0pi -e 's#repoURL: .*#repoURL: '"${INFRA_REPO_URL}"'#g' \
 perl -0pi -e 's#targetRevision: .*#targetRevision: '"${GITOPS_TARGET_REVISION}"'#g' \
   "${ROOT_DIR}/gitops/argocd/bootstrap/root-application.yaml" \
   "${ROOT_DIR}/gitops/argocd/apps/hydrosat-dagster.yaml" \
-  "${ROOT_DIR}/gitops/argocd/apps/external-secrets-resources.yaml" \
+  "${ROOT_DIR}/gitops/argocd/apps/external-secrets-resources.yaml"
+
+perl -0pi -e 's#(repoURL: https://github\.com/BranfordTGbieor/hydrosat-infra\.git\s+targetRevision: )HEAD#${1}'"${GITOPS_TARGET_REVISION}"'#g' \
   "${ROOT_DIR}/gitops/argocd/apps/external-secrets-operator.yaml" \
   "${ROOT_DIR}/gitops/argocd/apps/monitoring-alloy.yaml"
 

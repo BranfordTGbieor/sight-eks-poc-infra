@@ -4,6 +4,7 @@ set -euo pipefail
 
 failures=0
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT_SECONDS:-10s}"
+ROLLOUT_WAIT_TIMEOUT="${SMOKE_ROLLOUT_WAIT_TIMEOUT:-300s}"
 RESOURCE_WAIT_TIMEOUT_SECONDS="${SMOKE_RESOURCE_WAIT_TIMEOUT_SECONDS:-300}"
 RESOURCE_WAIT_POLL_SECONDS="${SMOKE_RESOURCE_WAIT_POLL_SECONDS:-10}"
 
@@ -106,6 +107,24 @@ app_exists_and_healthy_check() {
   fi
 }
 
+app_healthy_check() {
+  local app="$1"
+  local health
+
+  if ! kubectl get application "$app" -n argocd >/dev/null 2>&1; then
+    fail "application/$app does not exist"
+    return 1
+  fi
+
+  health="$(kubectl get application "$app" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+
+  if [[ "$health" == "Healthy" ]]; then
+    pass "application/$app is Healthy"
+  else
+    fail "application/$app expected Healthy but saw ${health:-<none>}"
+  fi
+}
+
 require_tool kubectl
 
 section "Cluster"
@@ -119,8 +138,8 @@ check "argocd-server is Available" kubectl wait --for=condition=Available deploy
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
 app_status_check hydrosat-root Synced Healthy
-app_exists_and_healthy_check hydrosat-external-secrets-operator
-app_exists_and_healthy_check hydrosat-external-secrets-resources
+app_healthy_check hydrosat-external-secrets-operator
+app_healthy_check hydrosat-external-secrets-resources
 app_exists_check hydrosat-dagster
 app_exists_check hydrosat-alloy
 
@@ -134,9 +153,9 @@ section "Dagster"
 wait_for_check "dagster webserver deployment exists" kubectl get deployment hydrosat-dagster-webserver -n dagster
 wait_for_check "dagster daemon deployment exists" kubectl get deployment hydrosat-dagster-daemon -n dagster
 wait_for_check "dagster user-code deployment exists" kubectl get deployment hydrosat-dagster-user-code -n dagster
-check "dagster webserver pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=webserver,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
-check "dagster daemon pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=daemon,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
-check "dagster user-code pod is Ready" kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=user-code,app.kubernetes.io/instance=hydrosat-dagster -n dagster --timeout="${WAIT_TIMEOUT}"
+check "dagster webserver deployment is Available" kubectl rollout status deployment/hydrosat-dagster-webserver -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
+check "dagster daemon deployment is Available" kubectl rollout status deployment/hydrosat-dagster-daemon -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
+check "dagster user-code deployment is Available" kubectl rollout status deployment/hydrosat-dagster-user-code -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
 wait_for_check "dagster webserver service exists" kubectl get service hydrosat-dagster-webserver -n dagster
 
 section "Monitoring"
