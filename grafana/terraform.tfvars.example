@@ -3,9 +3,8 @@ grafana_url = "https://<stack>.grafana.net"
 # Create a Grafana service account token with alerting provisioning permissions.
 grafana_auth = "glsa_..."
 
-notification_email_addresses = [
-  "alerts@example.com",
-]
+# Slack incoming webhook for the target channel.
+slack_webhook_url = "https://hooks.slack.com/services/..."
 
 # Export or inspect this from Grafana Cloud -> Connections -> Data sources -> Loki.
 loki_datasource_uid = "loki"

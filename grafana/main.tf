@@ -2,26 +2,26 @@ resource "grafana_folder" "alerting" {
   title = var.alert_folder_title
 }
 
-resource "grafana_contact_point" "exercise_email" {
-  name               = "Hydrosat Exercise Email"
+resource "grafana_contact_point" "exercise_slack" {
+  name               = "Hydrosat Exercise Slack"
   disable_provenance = var.disable_provenance
 
-  email {
-    addresses = var.notification_email_addresses
+  slack {
+    url = var.slack_webhook_url
   }
 }
 
 resource "grafana_notification_policy" "root" {
   disable_provenance = var.disable_provenance
 
-  contact_point   = grafana_contact_point.exercise_email.name
+  contact_point   = grafana_contact_point.exercise_slack.name
   group_by        = ["alertname"]
   group_wait      = "30s"
   group_interval  = "5m"
   repeat_interval = "4h"
 
   policy {
-    contact_point   = grafana_contact_point.exercise_email.name
+    contact_point   = grafana_contact_point.exercise_slack.name
     group_by        = ["alertname"]
     group_wait      = "30s"
     group_interval  = "5m"

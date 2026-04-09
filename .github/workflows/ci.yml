@@ -68,6 +68,14 @@ jobs:
         working-directory: terraform
         run: terraform validate
 
+      - name: Terraform init Grafana alerting
+        working-directory: grafana
+        run: terraform init -backend=false
+
+      - name: Terraform validate Grafana alerting
+        working-directory: grafana
+        run: terraform validate
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
 

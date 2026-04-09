@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF_DIR="${ROOT_DIR}/terraform"
 
 INFRA_REPO_URL="${INFRA_REPO_URL:-https://github.com/BranfordTGbieor/hydrosat-infra.git}"
+GITOPS_TARGET_REVISION="${GITOPS_TARGET_REVISION:-$(git -C "${ROOT_DIR}" rev-parse --abbrev-ref HEAD)}"
 GRAFANA_CLOUD_SECRET_ARN="${GRAFANA_CLOUD_SECRET_ARN:?Set GRAFANA_CLOUD_SECRET_ARN to the AWS Secrets Manager ARN for Grafana Cloud observability credentials.}"
 
 tf_output() {
@@ -30,6 +31,15 @@ perl -0pi -e 's#repoURL: .*#repoURL: '"${INFRA_REPO_URL}"'#g' \
   "${ROOT_DIR}/gitops/argocd/bootstrap/root-application.yaml" \
   "${ROOT_DIR}/gitops/argocd/apps/hydrosat-dagster.yaml" \
   "${ROOT_DIR}/gitops/argocd/apps/external-secrets-resources.yaml"
+
+perl -0pi -e 's#targetRevision: .*#targetRevision: '"${GITOPS_TARGET_REVISION}"'#g' \
+  "${ROOT_DIR}/gitops/argocd/bootstrap/root-application.yaml" \
+  "${ROOT_DIR}/gitops/argocd/apps/hydrosat-dagster.yaml" \
+  "${ROOT_DIR}/gitops/argocd/apps/external-secrets-resources.yaml"
+
+perl -0pi -e 's#(repoURL: https://github\.com/BranfordTGbieor/hydrosat-infra\.git\s+targetRevision: )HEAD#${1}'"${GITOPS_TARGET_REVISION}"'#g' \
+  "${ROOT_DIR}/gitops/argocd/apps/external-secrets-operator.yaml" \
+  "${ROOT_DIR}/gitops/argocd/apps/monitoring-alloy.yaml"
 
 perl -0pi -e 's#- (?:REPLACE_WITH_GIT_REPOSITORY_URL|git@github\.com:BranfordTGbieor/hydrosat-infra\.git|https://github\.com/BranfordTGbieor/hydrosat-infra\.git)#- '"${INFRA_REPO_URL}"'#g' \
   "${ROOT_DIR}/gitops/argocd/apps/project.yaml" \

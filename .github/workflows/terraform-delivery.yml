@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   resolve-context:
-    name: Resolve Environment Context
+    name: Resolve Env Context
     runs-on: ubuntu-latest
     outputs:
       environment_name: ${{ steps.resolve.outputs.environment_name }}
@@ -78,12 +78,32 @@ jobs:
           role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Resolve Grafana Cloud secret ARN
+        run: |
+          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
+          secret_arn="$(aws secretsmanager list-secrets \
+            --region "${AWS_REGION}" \
+            --filters Key=name,Values="${secret_name}" \
+            --query 'sort_by(SecretList,&CreatedDate)[-1].ARN' \
+            --output text)"
+
+          if [ -z "${secret_arn}" ] || [ "${secret_arn}" = "None" ]; then
+            echo "Unable to resolve Grafana Cloud secret ARN for ${secret_name}. Ensure the environment-specific secret exists or set GRAFANA_CLOUD_SECRET_NAME." >&2
+            exit 1
+          fi
+
+          echo "GRAFANA_CLOUD_SECRET_ARN=${secret_arn}" >> "${GITHUB_ENV}"
+          echo "Resolved Grafana Cloud secret ARN for ${secret_name}."
+        env:
+          GRAFANA_CLOUD_SECRET_NAME_OVERRIDE: ${{ vars.GRAFANA_CLOUD_SECRET_NAME }}
+
       - name: Write CI tfvars
         working-directory: terraform
         run: |
           cat > ci.auto.tfvars <<EOF
           environment = "${TARGET_ENVIRONMENT}"
           enable_service_kms_hardening = false
+          grafana_cloud_secret_arn = "${GRAFANA_CLOUD_SECRET_ARN}"
           extra_tags = {
             DeploymentSource = "github-actions"
             GitRef           = "${GIT_REF_TAG}"
@@ -140,6 +160,7 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
+      GITOPS_TARGET_REVISION: ${{ needs.resolve-context.outputs.git_ref_tag }}
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       INFRA_REPO_URL: https://github.com/${{ github.repository }}.git
       GRAFANA_CLOUD_SECRET_NAME_OVERRIDE: ${{ vars.GRAFANA_CLOUD_SECRET_NAME }}
@@ -183,6 +204,11 @@ jobs:
 
       - name: Resolve Grafana Cloud secret ARN
         run: |
+          if [ -n "${GRAFANA_CLOUD_SECRET_ARN}" ]; then
+            echo "Grafana Cloud secret ARN already available from apply job configuration."
+            exit 0
+          fi
+
           secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
           secret_arn="$(aws secretsmanager list-secrets \
             --region "${AWS_REGION}" \
@@ -230,3 +256,73 @@ jobs:
         run: ./scripts/smoke-check.sh
         env:
           SMOKE_WAIT_TIMEOUT_SECONDS: "120s"
+          SMOKE_ROLLOUT_WAIT_TIMEOUT: "600s"
+
+      - name: Publish Dagster endpoint summary
+        run: |
+          dagster_hostname="$(kubectl get svc hydrosat-dagster-webserver -n dagster -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+
+          {
+            echo "## Dagster Endpoint"
+            echo
+            if [ -n "${dagster_hostname}" ]; then
+              echo "- Hostname: \`${dagster_hostname}\`"
+              echo "- URL: http://${dagster_hostname}"
+            else
+              echo "- Dagster webserver service exists, but the external hostname is not populated yet."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Collect bootstrap diagnostics on failure
+        if: failure()
+        run: |
+          echo "== applications ==" 
+          kubectl get applications -n argocd || true
+
+          echo
+          echo "== hydrosat-external-secrets-resources ==" 
+          kubectl describe application hydrosat-external-secrets-resources -n argocd || true
+
+          echo
+          echo "== external secrets ==" 
+          kubectl get externalsecret -A || true
+
+          echo
+          echo "== hydrosat-dagster-db externalsecret ==" 
+          kubectl describe externalsecret hydrosat-dagster-db -n dagster || true
+
+          echo
+          echo "== hydrosat-grafana-cloud externalsecret ==" 
+          kubectl describe externalsecret hydrosat-grafana-cloud -n monitoring || true
+
+          echo
+          echo "== cluster secret stores ==" 
+          kubectl describe clustersecretstore -A || true
+
+          echo
+          echo "== external secrets operator logs ==" 
+          kubectl logs deployment/hydrosat-external-secrets -n external-secrets --tail=200 || true
+
+          echo
+          echo "== dagster deployments ==" 
+          kubectl get deployment -n dagster || true
+
+          echo
+          echo "== dagster pods ==" 
+          kubectl get pods -n dagster -o wide || true
+
+          echo
+          echo "== dagster daemon deployment ==" 
+          kubectl describe deployment hydrosat-dagster-daemon -n dagster || true
+
+          echo
+          echo "== dagster user-code deployment ==" 
+          kubectl describe deployment hydrosat-dagster-user-code -n dagster || true
+
+          echo
+          echo "== dagster daemon pod logs ==" 
+          kubectl logs deployment/hydrosat-dagster-daemon -n dagster --tail=200 || true
+
+          echo
+          echo "== dagster user-code pod logs ==" 
+          kubectl logs deployment/hydrosat-dagster-user-code -n dagster --tail=200 || true

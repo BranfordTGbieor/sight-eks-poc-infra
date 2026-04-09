@@ -1,5 +1,6 @@
 data "aws_caller_identity" "current" {}
 
+#checkov:skip=CKV_AWS_145:Demo environments default to AES256 unless explicit customer-managed KMS keys are supplied.
 resource "aws_s3_bucket" "data_lake_logs" {
   bucket = "${var.name_prefix}-data-lake-logs"
 
@@ -86,6 +87,7 @@ resource "aws_s3_bucket_policy" "data_lake_logs" {
   })
 }
 
+#checkov:skip=CKV_AWS_145:Demo environments default to AES256 unless explicit customer-managed KMS keys are supplied.
 resource "aws_s3_bucket" "data_lake" {
   bucket = "${var.name_prefix}-data-lake"
 

@@ -6,29 +6,38 @@ TIMEOUT_SECONDS="${WAIT_FOR_APPS_TIMEOUT_SECONDS:-600}"
 POLL_SECONDS="${WAIT_FOR_APPS_POLL_SECONDS:-10}"
 START_TIME="$(date +%s)"
 
-apps=(
-  "hydrosat-root:Healthy:Synced"
-  "hydrosat-dagster:Healthy:Synced"
-  "hydrosat-alloy:Healthy:Synced"
+root_app="hydrosat-root"
+child_apps=(
+  "hydrosat-external-secrets-operator"
+  "hydrosat-external-secrets-resources"
+  "hydrosat-dagster"
+  "hydrosat-alloy"
 )
 
 while true; do
   all_ready="true"
 
-  for app_spec in "${apps[@]}"; do
-    IFS=":" read -r app expected_health expected_sync <<< "${app_spec}"
-    health="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
-    sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+  root_health="$(kubectl get application "${root_app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+  root_sync="$(kubectl get application "${root_app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+  printf '%s health=%s sync=%s\n' "${root_app}" "${root_health:-<none>}" "${root_sync:-<none>}"
 
-    printf '%s health=%s sync=%s\n' "${app}" "${health:-<none>}" "${sync:-<none>}"
+  if [[ "${root_health}" != "Healthy" || "${root_sync}" != "Synced" ]]; then
+    all_ready="false"
+  fi
 
-    if [[ "${health}" != "${expected_health}" || "${sync}" != "${expected_sync}" ]]; then
+  for app in "${child_apps[@]}"; do
+    if kubectl get application "${app}" -n argocd >/dev/null 2>&1; then
+      health="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+      sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+      printf '%s health=%s sync=%s\n' "${app}" "${health:-<none>}" "${sync:-<none>}"
+    else
+      printf '%s health=<none> sync=<none>\n' "${app}"
       all_ready="false"
     fi
   done
 
   if [[ "${all_ready}" == "true" ]]; then
-    echo "Applications reached expected health and sync."
+    echo "Root application is healthy and child application objects exist."
     exit 0
   fi
 

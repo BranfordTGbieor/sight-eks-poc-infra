@@ -428,10 +428,10 @@ Validation flow:
 
 Recommended first alerting flow in Grafana Cloud:
 
-1. Populate local inputs for the separate `grafana/` Terraform root.
+1. Populate the separate `grafana/` Terraform root inputs or the matching GitHub Environment vars and secrets.
 2. Apply the first alert pack as code.
 3. Trigger one controlled failure case from Dagster.
-4. Confirm the alert fires and reaches the expected notification target.
+4. Confirm the alert fires and reaches the expected Slack channel.
 
 See [design-notes.md](./design-notes.md) and [grafana/README.md](./grafana/README.md) for the current alerting design and provisioning approach.
 
@@ -480,6 +480,8 @@ terraform plan
 
 That separate root manages the first Grafana Cloud alerting resources without mixing them into the AWS infrastructure state.
 
+The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting Delivery`, for applying the separate `grafana/` Terraform state after the main infra pipeline is healthy.
+
 ## CI and Delivery
 
 ### CI Workflow
@@ -491,6 +493,7 @@ It covers:
 - Terraform formatting
 - Checkov security scanning
 - Terraform validation for `terraform/`
+- Terraform validation for `grafana/`
 - a reviewable Terraform plan artifact when delivery variables are configured
 - Helm lint for the Dagster chart
 - Helm rendering for Dagster and GitOps-managed charts
@@ -517,6 +520,28 @@ Tagging model:
 
 - `Environment` remains the canonical stable environment tag
 - `GitRef` can be added as secondary traceability metadata
+
+After bootstrap and smoke check succeed, the workflow now writes the Dagster public hostname into the GitHub Actions step summary so the UI endpoint is easy to find without a manual `kubectl get svc`.
+
+### Grafana Alerting Delivery Workflow
+
+Grafana alerting delivery lives in [grafana-alerting-delivery.yml](.github/workflows/grafana-alerting-delivery.yml).
+
+Required GitHub Environment configuration:
+
+- variable: `GRAFANA_URL`
+- variable: `GRAFANA_LOKI_DATASOURCE_UID`
+- optional variable: `GRAFANA_DAGSTER_JOB_NAME`
+- optional variable: `GRAFANA_ALERT_FOLDER_TITLE`
+- optional variable: `GRAFANA_DISABLE_PROVENANCE`
+- secret: `GRAFANA_AUTH`
+- secret: `GRAFANA_SLACK_WEBHOOK_URL`
+
+Values inferred automatically by the workflow:
+
+- target environment from branch name
+- `cluster_name` as `hydrosat-<env>-eks`
+- `dagster_namespace` as `dagster`
 
 ### GitHub Environment Protection
 

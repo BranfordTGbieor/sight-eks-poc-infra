@@ -4,6 +4,6 @@ output "alert_folder_uid" {
 }
 
 output "contact_point_name" {
-  value       = grafana_contact_point.exercise_email.name
+  value       = grafana_contact_point.exercise_slack.name
   description = "Name of the provisioned contact point."
 }

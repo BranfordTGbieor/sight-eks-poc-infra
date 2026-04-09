@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   name = "${var.project_name}-${var.environment}"
 
@@ -62,10 +64,12 @@ module "platform" {
   external_secrets_service_account_name = var.external_secrets_service_account_name
   dagster_namespace                     = var.dagster_namespace
   dagster_service_account_name          = var.dagster_service_account_name
-  external_secrets_secret_arns = compact([
+  external_secrets_secret_arns = distinct(compact([
     module.rds.master_user_secret_arn,
     var.grafana_cloud_secret_arn,
-  ])
+    "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:rds!db-*",
+    "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}/${var.environment}/grafana-cloud*",
+  ]))
   common_tags = local.common_tags
 }
 
