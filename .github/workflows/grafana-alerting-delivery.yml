@@ -1,0 +1,144 @@
+name: Grafana Alerting Delivery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  resolve-context:
+    name: Resolve Env Context
+    runs-on: ubuntu-latest
+    outputs:
+      environment_name: ${{ steps.resolve.outputs.environment_name }}
+      git_ref_tag: ${{ steps.resolve.outputs.git_ref_tag }}
+    steps:
+      - name: Resolve branch-to-environment mapping
+        id: resolve
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          branch="${BASE_REF:-$REF_NAME}"
+          case "${branch}" in
+            main|master)
+              environment_name="prod"
+              ;;
+            qa)
+              environment_name="qa"
+              ;;
+            develop|dev)
+              environment_name="dev"
+              ;;
+            *)
+              environment_name="dev"
+              ;;
+          esac
+
+          echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
+          echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
+
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: resolve-context
+    environment: ${{ needs.resolve-context.outputs.environment_name }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TARGET_ENVIRONMENT: ${{ needs.resolve-context.outputs.environment_name }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+      GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
+      GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON: ${{ vars.GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required Grafana inputs
+        run: |
+          missing=0
+
+          for key in GRAFANA_URL GRAFANA_LOKI_DATASOURCE_UID GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON GRAFANA_AUTH; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required input: ${key}" >&2
+              missing=1
+            fi
+          done
+
+          if ! echo "${GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON}" | jq -e 'if type == "array" and length > 0 then . else empty end' >/dev/null; then
+            echo "GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON must be a non-empty JSON array." >&2
+            missing=1
+          fi
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write backend config
+        working-directory: grafana
+        run: |
+          cat > backend.ci.hcl <<EOF
+          bucket         = "${TF_STATE_BUCKET}"
+          dynamodb_table = "${TF_LOCK_TABLE}"
+          key            = "${TARGET_ENVIRONMENT}/grafana-alerting.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          EOF
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
+
+      - name: Write CI tfvars
+        working-directory: grafana
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          grafana_url = "${GRAFANA_URL}"
+          grafana_auth = "${GRAFANA_AUTH}"
+          loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
+          notification_email_addresses = ${GRAFANA_NOTIFICATION_EMAIL_ADDRESSES_JSON}
+          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          dagster_namespace = "dagster"
+          dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
+          alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"
+          disable_provenance = ${GRAFANA_DISABLE_PROVENANCE}
+          EOF
+
+      - name: Terraform init
+        working-directory: grafana
+        run: terraform init -backend-config=backend.ci.hcl
+
+      - name: Terraform apply
+        working-directory: grafana
+        run: terraform apply -input=false -auto-approve
+
+      - name: Publish Grafana alerting summary
+        working-directory: grafana
+        run: |
+          alert_folder_uid="$(terraform output -raw alert_folder_uid)"
+          contact_point_name="$(terraform output -raw contact_point_name)"
+
+          {
+            echo "## Grafana Alerting"
+            echo
+            echo "- Folder UID: \`${alert_folder_uid}\`"
+            echo "- Contact point: \`${contact_point_name}\`"
+            echo "- Environment: \`${TARGET_ENVIRONMENT}\`"
+            echo "- Grafana URL: ${GRAFANA_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"

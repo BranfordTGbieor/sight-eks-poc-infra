@@ -258,6 +258,21 @@ jobs:
           SMOKE_WAIT_TIMEOUT_SECONDS: "120s"
           SMOKE_ROLLOUT_WAIT_TIMEOUT: "600s"
 
+      - name: Publish Dagster endpoint summary
+        run: |
+          dagster_hostname="$(kubectl get svc hydrosat-dagster-webserver -n dagster -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+
+          {
+            echo "## Dagster Endpoint"
+            echo
+            if [ -n "${dagster_hostname}" ]; then
+              echo "- Hostname: \`${dagster_hostname}\`"
+              echo "- URL: http://${dagster_hostname}"
+            else
+              echo "- Dagster webserver service exists, but the external hostname is not populated yet."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Collect bootstrap diagnostics on failure
         if: failure()
         run: |
