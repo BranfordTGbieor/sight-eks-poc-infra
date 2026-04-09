@@ -256,6 +256,7 @@ jobs:
         run: ./scripts/smoke-check.sh
         env:
           SMOKE_WAIT_TIMEOUT_SECONDS: "120s"
+          SMOKE_ROLLOUT_WAIT_TIMEOUT: "600s"
 
       - name: Collect bootstrap diagnostics on failure
         if: failure()
@@ -286,3 +287,27 @@ jobs:
           echo
           echo "== external secrets operator logs ==" 
           kubectl logs deployment/hydrosat-external-secrets -n external-secrets --tail=200 || true
+
+          echo
+          echo "== dagster deployments ==" 
+          kubectl get deployment -n dagster || true
+
+          echo
+          echo "== dagster pods ==" 
+          kubectl get pods -n dagster -o wide || true
+
+          echo
+          echo "== dagster daemon deployment ==" 
+          kubectl describe deployment hydrosat-dagster-daemon -n dagster || true
+
+          echo
+          echo "== dagster user-code deployment ==" 
+          kubectl describe deployment hydrosat-dagster-user-code -n dagster || true
+
+          echo
+          echo "== dagster daemon pod logs ==" 
+          kubectl logs deployment/hydrosat-dagster-daemon -n dagster --tail=200 || true
+
+          echo
+          echo "== dagster user-code pod logs ==" 
+          kubectl logs deployment/hydrosat-dagster-user-code -n dagster --tail=200 || true
