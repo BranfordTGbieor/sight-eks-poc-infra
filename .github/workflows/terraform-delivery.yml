@@ -78,12 +78,32 @@ jobs:
           role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Resolve Grafana Cloud secret ARN
+        run: |
+          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
+          secret_arn="$(aws secretsmanager list-secrets \
+            --region "${AWS_REGION}" \
+            --filters Key=name,Values="${secret_name}" \
+            --query 'sort_by(SecretList,&CreatedDate)[-1].ARN' \
+            --output text)"
+
+          if [ -z "${secret_arn}" ] || [ "${secret_arn}" = "None" ]; then
+            echo "Unable to resolve Grafana Cloud secret ARN for ${secret_name}. Ensure the environment-specific secret exists or set GRAFANA_CLOUD_SECRET_NAME." >&2
+            exit 1
+          fi
+
+          echo "GRAFANA_CLOUD_SECRET_ARN=${secret_arn}" >> "${GITHUB_ENV}"
+          echo "Resolved Grafana Cloud secret ARN for ${secret_name}."
+        env:
+          GRAFANA_CLOUD_SECRET_NAME_OVERRIDE: ${{ vars.GRAFANA_CLOUD_SECRET_NAME }}
+
       - name: Write CI tfvars
         working-directory: terraform
         run: |
           cat > ci.auto.tfvars <<EOF
           environment = "${TARGET_ENVIRONMENT}"
           enable_service_kms_hardening = false
+          grafana_cloud_secret_arn = "${GRAFANA_CLOUD_SECRET_ARN}"
           extra_tags = {
             DeploymentSource = "github-actions"
             GitRef           = "${GIT_REF_TAG}"
@@ -183,6 +203,11 @@ jobs:
 
       - name: Resolve Grafana Cloud secret ARN
         run: |
+          if [ -n "${GRAFANA_CLOUD_SECRET_ARN}" ]; then
+            echo "Grafana Cloud secret ARN already available from apply job configuration."
+            exit 0
+          fi
+
           secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
           secret_arn="$(aws secretsmanager list-secrets \
             --region "${AWS_REGION}" \
