@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   resolve-context:
-    name: Resolve Environment Context
+    name: Resolve Env Context
     runs-on: ubuntu-latest
     outputs:
       environment_name: ${{ steps.resolve.outputs.environment_name }}
