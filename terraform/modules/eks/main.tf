@@ -3,6 +3,10 @@ data "aws_iam_policy" "ebs_csi" {
   arn   = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
+locals {
+  cluster_admin_principals = toset(var.cluster_admin_principal_arns)
+}
+
 resource "aws_security_group" "cluster" {
   name        = "${var.cluster_name}-cluster"
   description = "EKS control plane security group"
@@ -250,6 +254,32 @@ resource "aws_iam_openid_connect_provider" "this" {
   tags = merge(var.common_tags, {
     Component = "eks"
   })
+}
+
+resource "aws_eks_access_entry" "cluster_admin" {
+  for_each = local.cluster_admin_principals
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  type          = "STANDARD"
+
+  tags = merge(var.common_tags, {
+    Component = "eks"
+  })
+}
+
+resource "aws_eks_access_policy_association" "cluster_admin" {
+  for_each = local.cluster_admin_principals
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.cluster_admin]
 }
 
 resource "aws_iam_role" "ebs_csi_controller" {

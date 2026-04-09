@@ -84,6 +84,7 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           environment = "${TARGET_ENVIRONMENT}"
           enable_service_kms_hardening = false
+          cluster_admin_principal_arns = ["arn:aws:iam::564268553986:user/gbieor"]
           extra_tags = {
             DeploymentSource = "github-actions"
             GitRef           = "${GIT_REF_TAG}"

@@ -11,6 +11,7 @@ eks_secrets_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/replace-with-e
 cloudwatch_logs_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/replace-with-logs-key"
 s3_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/replace-with-s3-key"
 enable_ebs_csi_driver = true
+cluster_admin_principal_arns = ["arn:aws:iam::123456789012:user/replace-me"]
 enable_vpc_flow_logs = true
 vpc_flow_log_retention_in_days = 7
 db_instance_class   = "db.t4g.micro"

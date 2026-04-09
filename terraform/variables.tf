@@ -110,6 +110,12 @@ variable "enable_ebs_csi_driver" {
   default     = true
 }
 
+variable "cluster_admin_principal_arns" {
+  description = "IAM principal ARNs that should receive cluster-admin access through EKS access entries."
+  type        = list(string)
+  default     = []
+}
+
 variable "dagster_namespace" {
   description = "Kubernetes namespace used for the Dagster platform."
   type        = string
