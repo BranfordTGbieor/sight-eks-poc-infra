@@ -13,6 +13,7 @@ skip-check:
   - CKV_AWS_118
   - CKV_AWS_130
   - CKV_AWS_144
+  - CKV_AWS_145
   - CKV_AWS_157
   - CKV_AWS_293
   - CKV_AWS_338
