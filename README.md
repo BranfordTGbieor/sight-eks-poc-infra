@@ -86,7 +86,7 @@ Separation of concerns:
 
 ### AWS Infrastructure
 
-![AWS infrastructure diagram](utils/images/aws-infra.png)
+<img src="utils/images/aws-infra.png" alt="AWS infrastructure diagram" width="1100" />
 
 Source: [utils/mermaid/aws-infra.mmd](./utils/mermaid/aws-infra.mmd)
 
@@ -160,7 +160,7 @@ The default observability path is now intentionally lighter:
 
 This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
 
-![Observability diagram](utils/images/observability.png)
+<img src="utils/images/observability.png" alt="Observability diagram" width="1100" />
 
 Source: [utils/mermaid/observability.mmd](./utils/mermaid/observability.mmd)
 
@@ -365,7 +365,7 @@ The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting De
 
 ## CI and Delivery
 
-![CI and delivery diagram](utils/images/delivery.png)
+<img src="utils/images/delivery.png" alt="CI and delivery diagram" width="1100" />
 
 Source: [utils/mermaid/delivery.mmd](./utils/mermaid/delivery.mmd)
 
