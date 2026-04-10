@@ -312,6 +312,14 @@ kubectl port-forward svc/hydrosat-dagster-webserver -n dagster 3000:80
 
 The application-level demo job, run config, and pass/fail simulation live in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data). Keep Dagster job execution details in that repo, and use this repo to validate platform health, GitOps delivery, and observability plumbing.
 
+Minimal operator flow for the sample pipeline:
+
+1. access the Dagster UI through the service endpoint or local port-forward
+2. launch the sample job from the Dagster UI or GraphQL API once the platform is healthy
+3. use the run configuration documented in `hydrosat-data`, including the `should_fail` toggle for controlled failure validation
+
+Detailed job definitions, run config, and pass/fail simulation remain in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data), which is the correct ownership boundary for application behavior.
+
 Current validated state:
 
 - cluster bring-up is repeatable through Terraform, GitOps sync, Argo CD bootstrap, and the repo smoke check
