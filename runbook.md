@@ -106,7 +106,7 @@ Expected result:
 - Argo CD pods are `Running`
 - `hydrosat-root` appears in `argocd`
 
-In CI, the same bootstrap is now intended to run as a gated post-apply delivery stage after `Terraform Apply`.
+In CI, the same bootstrap already runs as a built-in gated post-apply delivery stage after `Terraform Apply`.
 
 ## 5. Run the Smoke Check
 
@@ -226,9 +226,7 @@ Known Dagster failure patterns:
 kubectl annotate externalsecret hydrosat-dagster-db -n dagster force-sync=$(date +%s) --overwrite
 ```
 
-- on the current small demo cluster, the Dagster daemon can still remain `Pending` due to:
-  - `Too many pods`
-  - `Insufficient memory`
+- the main scheduling-related risk is reverting below the validated 3-node baseline
 
 ## 9. Grafana Cloud Observability Checks
 
@@ -285,33 +283,29 @@ kubectl rollout restart deployment/hydrosat-alloy -n monitoring
 
 The current recommended alerting path is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root, not in-cluster Alertmanager.
 
-For this repo, the first alert set should be:
+For this repo, the first alert set is intentionally small:
 
-- Alloy export/auth failures
-- Dagster webserver unavailable
-- Dagster daemon unavailable
-- repeated Dagster error logs
-- no recent Dagster workload logs during expected activity windows
+- one validated Dagster `RUN_FAILURE` log rule routed to Slack
 
-Pragmatic first implementation:
+Current implementation:
 
-1. populate `grafana/terraform.tfvars` with the Grafana URL, service account token, email addresses, and Loki data source UID
-2. apply the separate `grafana/` Terraform root
+1. populate `grafana/terraform.tfvars` or GitHub Environment settings with the Grafana URL, service account token, Slack webhook, and Loki data source UID
+2. apply the separate `grafana/` Terraform root or run `Grafana Alerting Delivery`
 3. start with a Dagster log alert on `RUN_FAILURE` for `hydrosat_lakehouse_job`
-4. document the chosen rules and thresholds in this repo after validation
+4. validate using a controlled Dagster failure
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
 
 Current Terraform-managed scope:
 
 1. one exercise contact point:
-   - email
+   - Slack webhook
 2. one notification-policy branch:
    - `service=dagster`
 3. one required rule:
    - `Dagster Job Failure`
 
-Keep the scope this small until live validation is complete.
+Keep the scope this small until there is a reason to expand it.
 
 Suggested first Dagster alert rule:
 
@@ -327,14 +321,12 @@ Suggested first Dagster alert rule:
 sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job" [5m])) > 0
 ```
 
-Expected validation:
+Validated result:
 
-1. apply the `grafana/` Terraform root
+1. apply the `grafana/` Terraform root or run `Grafana Alerting Delivery`
 2. trigger the controlled failure in Dagster with `should_fail: true`
 3. confirm the rule enters firing state
-4. confirm the notification reaches the configured contact point
-
-Until that notification lands, the assignment's alerting requirement remains only partially closed.
+4. confirm the Slack notification reaches the configured channel
 
 ## 10. Known Recovery Steps
 
@@ -501,7 +493,7 @@ The environment is in a good state when all of these are true:
 
 If you only need a short validation window:
 
-- scale the node group back down in local `terraform.tfvars`
+- keep the validated 3-node profile during active validation unless cost pressure requires a deliberate re-test
 - or destroy the stack entirely
 
 Commands:
