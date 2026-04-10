@@ -1,6 +1,5 @@
 bucket         = "hydrosat-<unique-suffix>-tf-state"
 dynamodb_table = "hydrosat-terraform-locks"
 region         = "us-east-1"
-key            = "platform/terraform.tfstate"
+key            = "dev/platform.tfstate"
 encrypt        = true
-

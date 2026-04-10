@@ -8,7 +8,7 @@ locals {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
-      Repository  = "hydrosat-take-home"
+      Repository  = "hydrosat-infra"
     },
     var.extra_tags,
   )
