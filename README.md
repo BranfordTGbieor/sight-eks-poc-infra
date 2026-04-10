@@ -31,6 +31,7 @@ The Dagster application source code, tests, and container build live in the sepa
 - [Usage and Validation](#usage-and-validation)
 - [CI and Delivery](#ci-and-delivery)
 - [Security](#security)
+- [Conclusion](#conclusion)
 
 ## Overview
 
@@ -286,7 +287,7 @@ GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
 ```
 
 For local/manual runs, exporting `GRAFANA_CLOUD_SECRET_ARN` is still the simplest path.
-In the GitHub Actions delivery workflow, the ARN is now resolved dynamically from AWS Secrets Manager using the environment-specific secret name `hydrosat/<env>/grafana-cloud`, with an optional override variable if naming differs.
+In the GitHub Actions delivery workflow, that secret lookup is resolved automatically from AWS Secrets Manager for the target environment.
 
 The detailed operator sequence for syncing live values, bootstrapping Argo CD, validating Dagster, checking Grafana Cloud ingestion, and tearing down cleanly lives in [runbook.md](./runbook.md).
 
@@ -359,9 +360,7 @@ terraform init
 terraform plan
 ```
 
-That separate root manages the first Grafana Cloud alerting resources without mixing them into the AWS infrastructure state.
-
-The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting Delivery`, for applying the separate `grafana/` Terraform state after the main infra pipeline is healthy.
+That separate root manages the first Grafana Cloud alerting resources without mixing them into the AWS infrastructure state. The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting Delivery`, for applying the separate `grafana/` Terraform state after the main infra pipeline is healthy.
 
 ## CI and Delivery
 
@@ -412,46 +411,9 @@ After bootstrap and smoke check succeed, the workflow now writes the Dagster pub
 
 Grafana alerting delivery lives in [grafana-alerting-delivery.yml](.github/workflows/grafana-alerting-delivery.yml).
 
-Required GitHub Environment configuration:
-
-- variable: `GRAFANA_URL`
-- variable: `GRAFANA_LOKI_DATASOURCE_UID`
-- optional variable: `GRAFANA_DAGSTER_JOB_NAME`
-- optional variable: `GRAFANA_ALERT_FOLDER_TITLE`
-- optional variable: `GRAFANA_DISABLE_PROVENANCE`
-- secret: `GRAFANA_AUTH`
-- secret: `GRAFANA_SLACK_WEBHOOK_URL`
-
-`GRAFANA_AUTH` must be a Grafana stack service account token, for example `glsa_...`. Do not reuse the Grafana Cloud Loki or metrics ingestion credential from AWS Secrets Manager here; those are for in-cluster workload ingestion, not Terraform provider authentication.
-
-Values inferred automatically by the workflow:
-
-- target environment from branch name
-- `cluster_name` as `hydrosat-<env>-eks`
-- `dagster_namespace` as `dagster`
-
 ### GitHub Environment Protection
 
-For the intended CI-only apply model, create GitHub Environments named `dev`, `qa`, and `prod` in the `hydrosat-infra` repository and attach protection rules to them.
-
-Recommended baseline:
-
-- `dev`: optional reviewer gate, mainly used to exercise the workflow end to end
-- `qa`: at least one required reviewer before `Terraform Apply`
-- `prod`: at least one required reviewer, ideally two if the team is large enough
-
-Recommended environment-scoped variables:
-
-- `AWS_TERRAFORM_ROLE_ARN`
-- `TF_STATE_BUCKET`
-- `TF_LOCK_TABLE`
-- `AWS_REGION`
-- optional: `GRAFANA_CLOUD_SECRET_NAME` if your Secrets Manager naming does not follow `hydrosat/<env>/grafana-cloud`
-
-Recommended environment-scoped secrets when needed later:
-
-- any future Terraform provider credentials that should not be repository-wide
-- any release or notification tokens that should differ between `dev`, `qa`, and `prod`
+For the intended CI-only apply model, create GitHub Environments named `dev`, `qa`, and `prod` in the `hydrosat-infra` repository and attach protection rules to them. Reviewer requirements and environment-scoped variables are repository settings rather than versioned repo content, so the concrete protection baseline is maintained in GitHub instead of duplicated here.
 
 Expected operator flow:
 
@@ -461,7 +423,7 @@ Expected operator flow:
 4. trigger `Terraform Delivery` manually when ready
 5. approve the environment gate in GitHub
 6. let `Terraform Apply` run with the reviewed plan artifact
-7. run the gated post-apply Argo CD bootstrap and smoke-check stage
+7. let the workflow complete its built-in post-apply Argo CD bootstrap and smoke-check stage
 
 ### Release Ownership Model
 
@@ -478,6 +440,7 @@ Included security posture:
 | Practice | Implementation |
 | --- | --- |
 | Remote state protection | S3 versioning, encryption, public access block, DynamoDB locking |
+| AWS access from CI | GitHub Actions assumes an AWS IAM role via `AWS_TERRAFORM_ROLE_ARN`; no long-lived AWS access keys are stored in the repo |
 | Private data plane | RDS in private subnets |
 | Secret management | AWS Secrets Manager plus External Secrets |
 | Runtime hardening | Non-root pods and explicit security contexts |
@@ -494,3 +457,15 @@ Resource tags include:
 - `Name`
 
 `extra_tags` remains available for cost center, owner, or compliance metadata.
+
+## Conclusion
+
+This repository now demonstrates a complete infrastructure delivery path for the Hydrosat exercise:
+
+- AWS platform provisioning with Terraform
+- GitOps-based Kubernetes delivery through Argo CD
+- Dagster runtime packaging separated from application source ownership
+- centralized logging and alerting with Grafana Cloud
+- governed branch-based promotion through GitHub Actions
+
+The resulting setup stays intentionally demo-scoped, but it is structured around production-facing patterns rather than one-off manual steps.
