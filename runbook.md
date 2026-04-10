@@ -281,7 +281,7 @@ kubectl rollout restart deployment/hydrosat-alloy -n monitoring
 
 ## 9.1 Grafana Cloud Alerting
 
-The current recommended alerting path is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root, not in-cluster Alertmanager.
+The implemented alerting path is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root. In-cluster Alertmanager is not part of the active operator flow for this exercise.
 
 For this repo, the first alert set is intentionally small:
 
@@ -306,6 +306,13 @@ Current Terraform-managed scope:
    - `Dagster Job Failure`
 
 Keep the scope this small until there is a reason to expand it.
+
+Recommended next alerts after the validated baseline:
+
+- Dagster webserver unavailable
+- Dagster daemon unavailable
+- Alloy export/auth failures
+- missing Dagster workload log heartbeat
 
 Suggested first Dagster alert rule:
 

@@ -32,7 +32,7 @@ Use it alongside:
 
 ### Job Failure Alerting
 
-Dagster remains the source of truth for job-failure semantics. The chart still supports an Alertmanager URL, but the default GitOps profile leaves it blank so the platform can come up without the heavier in-cluster alerting stack.
+Dagster remains the source of truth for job-failure semantics. The chart still carries an `alertmanagerUrl` input, but it is intentionally unused in the default GitOps profile. The implemented alerting path for this exercise is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root.
 
 Current recommendation:
 
@@ -41,12 +41,15 @@ Current recommendation:
 - keep in-cluster Alertmanager out of the default profile
 - document the chosen rules, contact points, and notification-policy shape in Git
 
-Recommended first alert set:
+Validated first alert:
+
+- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki routed to Slack
+
+Recommended next alert set:
 
 - Alloy export/auth failures
 - Dagster webserver unavailable
 - Dagster daemon unavailable
-- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki
 - absence of expected Dagster workload logs over a recent window
 
 Recommended implementation order:
