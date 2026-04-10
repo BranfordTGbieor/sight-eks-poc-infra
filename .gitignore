@@ -20,6 +20,8 @@ build/
 .env
 .env.*
 !.env.example
+terraform.tfstate
+terraform.tfstate.*
 terraform/backend.hcl
 terraform/terraform.tfvars
 terraform/bootstrap/terraform.tfvars

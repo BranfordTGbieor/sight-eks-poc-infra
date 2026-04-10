@@ -17,7 +17,7 @@ Use it alongside:
 | Expose the Dagster UI | Kubernetes `LoadBalancer` service for demo access | Implemented and validated |
 | Run a dummy data pipeline | Split-repo flow with `hydrosat-data` image, sample ingestion, and staged/curated outputs in S3 | Implemented and validated |
 | Monitor and observe the platform | Alloy shipping pod logs, Dagster workload logs, events, and self-metrics to Grafana Cloud | Implemented and validated |
-| Alert on Dagster job failure | Grafana Cloud alert design documented with validated failure log signal | Design validated, notification delivery still pending |
+| Alert on Dagster job failure | Grafana Cloud alerting-as-code with validated Slack delivery on controlled Dagster failure | Implemented and validated |
 | Document architecture and usage | README, runbook, design notes, and repo-native smoke check | Implemented |
 
 ## Current Validation Status
@@ -26,13 +26,13 @@ Use it alongside:
 - Dagster steady state is healthy on the smaller 3-node cluster profile
 - success and controlled failure runs are both proven
 - Grafana Cloud ingestion of Dagster workload logs is proven
-- notification delivery from Grafana Cloud alerting is the main remaining live validation item
+- Grafana Cloud alerting-as-code is proven end to end through Slack delivery
 
 ## Operational Decisions
 
 ### Job Failure Alerting
 
-Dagster remains the source of truth for job-failure semantics. The chart still supports an Alertmanager URL, but the default GitOps profile leaves it blank so the platform can come up without the heavier in-cluster alerting stack.
+Dagster remains the source of truth for job-failure semantics. The chart still carries an `alertmanagerUrl` input, but it is intentionally unused in the default GitOps profile. The implemented alerting path for this exercise is Grafana Cloud-managed alerting through the separate `grafana/` Terraform root.
 
 Current recommendation:
 
@@ -41,12 +41,15 @@ Current recommendation:
 - keep in-cluster Alertmanager out of the default profile
 - document the chosen rules, contact points, and notification-policy shape in Git
 
-Recommended first alert set:
+Validated first alert:
+
+- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki routed to Slack
+
+Recommended next alert set:
 
 - Alloy export/auth failures
 - Dagster webserver unavailable
 - Dagster daemon unavailable
-- Dagster `RUN_FAILURE` logs in Grafana Cloud Loki
 - absence of expected Dagster workload logs over a recent window
 
 Recommended implementation order:
@@ -59,7 +62,7 @@ Recommended implementation order:
 
 Suggested notification model:
 
-- one low-noise contact point for the exercise, such as email or Slack
+- one low-noise contact point for the exercise, such as Slack
 - one default notification policy for `severity=warning`
 - one dedicated policy for `service=dagster` so job failures do not mix with general platform noise
 
@@ -67,6 +70,7 @@ Decision for this repo:
 
 - use alert-as-code for the small first Grafana Cloud alert pack through the separate `grafana/` Terraform root
 - keep the scope intentionally small and avoid a larger alerting platform refactor
+- use a Grafana service account token for Terraform provider authentication rather than reusing runtime ingestion credentials
 
 Guardrails:
 
@@ -155,7 +159,7 @@ Important note:
 
 Current demo defaults are intentionally modest:
 
-- EKS node group: `t3.small`, `min=2`, `desired=2`, `max=3`
+- EKS node group: `t3.small`, `min=3`, `desired=3`, `max=3`
 - RDS: PostgreSQL 16 on `db.t4g.micro`, `Multi-AZ = false`
 - VPC Flow Logs: enabled with `7d` retention
 - RDS Performance Insights: disabled
@@ -168,7 +172,7 @@ The goal is to keep the review environment inexpensive without changing the over
 
 | Area | Demo default in repo | Production-leaning recommendation | Why |
 | --- | --- | --- | --- |
-| EKS nodes | `t3.small`, `min=2`, `desired=2`, `max=3` | start at `min=2`, `desired=2`, `max=4+` with sizing based on real load | two nodes are still the minimum sane baseline once Dagster, Argo CD, and observability share a cluster |
+| EKS nodes | `t3.small`, `min=3`, `desired=3`, `max=3` | start at `min=2`, `desired=2`, `max=4+` with sizing based on real load | the exercise now uses the validated 3-node baseline because Dagster, Argo CD, and observability share one cluster |
 | RDS topology | `db.t4g.micro`, `Multi-AZ = false` | `db.t4g.small` or higher, `Multi-AZ = true` | the demo optimizes cost; production should optimize availability first |
 | RDS storage | `20 GiB`, autoscale to `100 GiB` | keep autoscaling, raise floor only if usage justifies it | autoscaling is already the better pattern than fixed overprovisioning |
 | VPC Flow Logs | enabled, `7d` retention | `30d+` retention or org-standard log archival | short retention preserves the network-visibility story without paying for a long audit window |
@@ -218,18 +222,18 @@ Why this matters:
 - use IRSA instead of static AWS credentials
 - keep the demo footprint cost-conscious without changing the fundamental architecture
 - use GitOps for steady-state reconciliation
-- keep alerting and access decisions documented in Git even when live validation is still pending
+- keep alerting and access decisions documented in Git and validated through code where practical
 
 ## Production Improvements
 
 If this moved beyond an exercise, the first improvements would be:
 
-1. complete alert delivery validation and harden the Grafana alert pack
+1. expand and harden the Grafana alert pack beyond the first validated Slack rule
 2. move Dagster and optionally Argo CD behind shared ingress with TLS and auth
 3. tighten EKS public API exposure after bootstrap
 4. raise RDS availability posture with Multi-AZ and revisit instance sizing
 5. add stronger post-apply automation and smoke tests
-6. move Argo CD bootstrap into a gated post-apply delivery step
+6. decide whether to keep Argo CD bootstrap in the current gated post-apply delivery step or split it into a separate operational workflow
 
 ## Delivery Decisions
 
@@ -260,7 +264,7 @@ Recommended shape:
 Current implementation status:
 
 - the workflow now includes a gated post-apply bootstrap job
-- the remaining work is live validation of that workflow path against a real environment
+- that path has been validated against a real environment
 
 Why this is better than the current manual-once flow:
 
