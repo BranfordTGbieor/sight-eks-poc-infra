@@ -1,0 +1,46 @@
+---
+config:
+  layout: elk
+  look: handDrawn
+  theme: redux
+---
+flowchart LR
+ subgraph VPC["☁️ VPC (10.0.0.0/16)<br>Isolated network boundary"]
+        IGW["🌐 Internet Gateway<br>Entry point from internet"]
+        Pub["🟦 Public Subnets<br>Expose outbound/inbound traffic"]
+        Priv["🔒 Private Subnets<br>Secure workload zone"]
+        NAT["↔️ NAT Gateway<br>Outbound internet for private resources"]
+  end
+ subgraph Network["🌍 Network Layer"]
+        VPC
+  end
+ subgraph Compute["⚙️ Compute Layer"]
+        EKS["☸️ EKS Cluster<br>Kubernetes control plane"]
+        Nodes["🧱 Managed Node Group<br>Worker node autoscaling"]
+        EBS["💽 EBS CSI Add-on<br>Persistent volume support"]
+  end
+ subgraph Data["🗄️ Data Layer"]
+        RDS["🗄️ RDS PostgreSQL<br>Metadata database for Dagster"]
+        Lake["🪣 S3 Data Lake<br>Raw + processed pipeline data"]
+        Logs["📋 S3 Access Logs<br>Audit and access logging"]
+        SM["🔑 Secrets Manager<br>Runtime credentials &amp; secrets"]
+  end
+ subgraph Security["🛡️ Access Layer"]
+        IAM["🛡️ IAM Roles / IRSA<br>Secure pod-level AWS access"]
+  end
+ subgraph Region["☁️ AWS Region"]
+        Network
+        Compute
+        Data
+        Security
+  end
+    TF["🛠️ Terraform<br>Provisions entire AWS environment"] --> Region
+    Internet["🌐 Internet<br>External access"] --> IGW
+    IGW --> Pub
+    Pub --> NAT
+    NAT --> Priv
+    Priv --> EKS
+    EKS --> Nodes & EBS
+    Nodes --> RDS & Lake & SM
+    Lake --> Logs
+    IAM --> EKS & SM & Lake

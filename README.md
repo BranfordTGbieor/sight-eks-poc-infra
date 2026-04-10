@@ -86,67 +86,9 @@ Separation of concerns:
 
 ### AWS Infrastructure
 
-```mermaid
-flowchart LR
-  Internet((Internet))
-  TF[Terraform]
+![AWS infrastructure diagram](utils/images/aws-infra.png)
 
-  subgraph Region["AWS Region"]
-    subgraph Network["Network Layer"]
-      VPC[VPC]
-      IGW[Internet Gateway]
-      Pub[Public Subnets]
-      Priv[Private Subnets]
-      NAT[NAT Gateway]
-      Flow[VPC Flow Logs]
-    end
-
-    subgraph Compute["Compute Layer"]
-      EKS[EKS Cluster]
-      Nodes[Managed Node Group]
-      EBS[EBS CSI Add-on]
-    end
-
-    subgraph Data["Data Layer"]
-      RDS[(RDS PostgreSQL)]
-      Lake[(S3 Data Lake)]
-      Logs[(S3 Access-Log Bucket)]
-      SM[Secrets Manager]
-    end
-
-    subgraph Security["Access Layer"]
-      IAM[IAM Roles / IRSA]
-    end
-  end
-
-  Internet --> IGW
-  IGW --> Pub
-  Pub --> NAT
-  NAT --> Priv
-  VPC --> Pub
-  VPC --> Priv
-  VPC --> Flow
-
-  Priv --> EKS
-  EKS --> Nodes
-  EKS --> EBS
-
-  Nodes --> RDS
-  Nodes --> Lake
-  Lake --> Logs
-  Nodes --> SM
-
-  IAM --> EKS
-  IAM --> SM
-  IAM --> Lake
-
-  TF --> VPC
-  TF --> EKS
-  TF --> RDS
-  TF --> Lake
-  TF --> SM
-  TF --> IAM
-```
+Source: [utils/mermaid/aws-infra.mmd](./utils/mermaid/aws-infra.mmd)
 
 ## Deployment Model
 
@@ -218,34 +160,9 @@ The default observability path is now intentionally lighter:
 
 This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
 
-```mermaid
-flowchart LR
-  SM[Secrets Manager]
-  ESO[External Secrets]
+![Observability diagram](utils/images/observability.png)
 
-  subgraph Cluster["EKS Cluster"]
-    Dagster[Dagster Workloads]
-    Alloy[Alloy]
-    Events[Kubernetes Events]
-  end
-
-  subgraph GrafanaCloud["Grafana Cloud"]
-    Loki[Loki]
-    Grafana[Dashboards / Explore]
-    Alerting[Alerting Rules]
-  end
-
-  Slack[Slack]
-
-  SM --> ESO
-  ESO --> Alloy
-  Dagster --> Alloy
-  Events --> Alloy
-  Alloy --> Loki
-  Loki --> Grafana
-  Loki --> Alerting
-  Alerting --> Slack
-```
+Source: [utils/mermaid/observability.mmd](./utils/mermaid/observability.mmd)
 
 Current coverage includes:
 
@@ -448,36 +365,9 @@ The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting De
 
 ## CI and Delivery
 
-```mermaid
-flowchart LR
-  Dev[dev branch]
-  QA[qa branch]
-  Main[main branch]
+![CI and delivery diagram](utils/images/delivery.png)
 
-  DataRepo[hydrosat-data]
-  DockerHub[Docker Hub]
-
-  InfraCI[CI workflow]
-  InfraDelivery[Infrastructure Delivery]
-  AlertDelivery[Grafana Alerting Delivery]
-
-  DataRepo -->|build and publish image| DockerHub
-  Dev --> InfraCI
-  QA --> InfraCI
-  Main --> InfraCI
-
-  Dev -->|manual delivery| InfraDelivery
-  QA -->|promotion by merge| InfraDelivery
-  Main -->|promotion by merge| InfraDelivery
-
-  DockerHub -->|image tag consumed by GitOps values| Dev
-  DockerHub -->|image tag consumed by GitOps values| QA
-  DockerHub -->|image tag consumed by GitOps values| Main
-
-  Dev -->|optional after infra is healthy| AlertDelivery
-  QA -->|optional after infra is healthy| AlertDelivery
-  Main -->|optional after infra is healthy| AlertDelivery
-```
+Source: [utils/mermaid/delivery.mmd](./utils/mermaid/delivery.mmd)
 
 ### CI Workflow
 

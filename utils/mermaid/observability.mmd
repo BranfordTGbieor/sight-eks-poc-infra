@@ -1,0 +1,44 @@
+---
+config:
+  layout: elk
+  look: handDrawn
+  theme: redux
+---
+
+flowchart LR
+
+  TF["🛠️ Terraform<br/>Provisions infra + alert rules (Alert-as-Code)"]
+  SM["🔑 Secrets Manager<br/>Stores Grafana Cloud credentials"]
+  Slack["💬 Slack<br/>Receives alert notifications"]
+
+  subgraph Cluster["☸️ EKS Cluster"]
+    ESO["🔐 External Secrets<br/>Injects secrets into cluster"]
+    Dagster["⚙️ Dagster Workloads<br/>Generate application logs"]
+    Events["📣 Kubernetes Events<br/>Cluster/runtime events"]
+    Alloy["📡 Grafana Alloy<br/>Collects, enriches, and forwards logs"]
+  end
+
+  subgraph GrafanaCloud["☁️ Grafana Cloud"]
+    Loki["🪵 Loki<br/>Centralized log backend"]
+    Explore["📊 Dashboards / Explore<br/>Search and investigate logs"]
+    Rules["🚨 Alerting Rules<br/>Defined via Terraform (Alert-as-Code)"]
+  end
+
+  %% Secret flow
+  SM --> ESO
+  ESO --> Alloy
+
+  %% Log flow
+  Dagster --> Alloy
+  Events --> Alloy
+  Alloy --> Loki
+
+  %% Observability flow
+  Loki --> Explore
+  Loki --> Rules
+
+  %% Alerting flow
+  Rules --> Slack
+
+  %% Alert-as-code connection
+  TF --> Rules

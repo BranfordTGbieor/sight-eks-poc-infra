@@ -1,0 +1,19 @@
+---
+config:
+  layout: dagre
+  look: handDrawn
+  theme: redux
+---
+flowchart LR
+ subgraph Branches["🌿 Environment Promotion"]
+        Dev["🌱 dev"]
+        QA["🧪 qa"]
+        Main["🚀 main"]
+  end
+    Dev --> QA
+    QA --> Main
+    DataRepo["📦 hydrosat-data<br>Builds and publishes runtime image"] -- Build and publish image --> DockerHub["🐳 Docker Hub<br>Stores published image"]
+    DockerHub -- Image tag referenced in values --> InfraRepo["🏗️ hydrosat-infra<br>Terraform + GitOps configuration"]
+    InfraRepo --> Branches
+    Branches --> InfraCI["✅ Infra CI<br>Validate Terraform + config"] & InfraDelivery["🏗️ Infra Delivery<br>Apply Terraform + sync GitOps"]
+    InfraDelivery -- After infra is healthy --> AlertRepo["🚨 alert-delivery<br>Grafana alert rules (Alert-as-Code)"]
