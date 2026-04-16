@@ -4,7 +4,7 @@ serviceAccount:
 
 image:
   repository: docker.io/gbieor/hydrosat-data
-  tag: v0.2.4
+  tag: v0.2.5
 
 dataLake:
   bucket: hydrosat-dev-data-lake
