@@ -138,8 +138,8 @@ check "argocd-server is Available" kubectl wait --for=condition=Available deploy
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
 app_status_check hydrosat-root Synced Healthy
-app_status_check hydrosat-external-secrets-operator Synced Healthy
-app_status_check hydrosat-external-secrets-resources Synced Healthy
+app_healthy_check hydrosat-external-secrets-operator
+app_healthy_check hydrosat-external-secrets-resources
 app_exists_check hydrosat-dagster
 app_exists_check hydrosat-alloy
 
