@@ -254,6 +254,8 @@ jobs:
 
       - name: Reconcile External Secrets resources
         run: |
+          kubectl wait --for=condition=Established crd/clustersecretstores.external-secrets.io --timeout=300s
+          kubectl wait --for=condition=Established crd/externalsecrets.external-secrets.io --timeout=300s
           kubectl apply --server-side -f gitops/external-secrets
           kubectl annotate externalsecret hydrosat-dagster-db -n dagster "force-sync=$(date +%s)" --overwrite
           kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring "force-sync=$(date +%s)" --overwrite
