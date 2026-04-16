@@ -252,6 +252,14 @@ jobs:
           WAIT_FOR_APPS_TIMEOUT_SECONDS: "900"
           WAIT_FOR_APPS_POLL_SECONDS: "15"
 
+      - name: Reconcile External Secrets resources
+        run: |
+          kubectl apply --server-side -f gitops/external-secrets
+          kubectl annotate externalsecret hydrosat-dagster-db -n dagster "force-sync=$(date +%s)" --overwrite
+          kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring "force-sync=$(date +%s)" --overwrite
+          kubectl wait --for=condition=Ready externalsecret/hydrosat-dagster-db -n dagster --timeout=300s
+          kubectl wait --for=condition=Ready externalsecret/hydrosat-grafana-cloud -n monitoring --timeout=300s
+
       - name: Run smoke check
         run: ./scripts/smoke-check.sh
         env:
