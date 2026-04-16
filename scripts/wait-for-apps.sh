@@ -33,7 +33,7 @@ while true; do
       sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
       printf '%s health=%s sync=%s\n' "${app}" "${health:-<none>}" "${sync:-<none>}"
 
-      if [[ "${health}" != "Healthy" ]]; then
+      if [[ "${health}" != "Healthy" || "${sync}" != "Synced" ]]; then
         all_ready="false"
       fi
     else
@@ -54,7 +54,7 @@ while true; do
   done
 
   if [[ "${all_ready}" == "true" ]]; then
-    echo "Root application is synced, External Secrets is healthy, and workload applications exist."
+    echo "Root and External Secrets applications are synced and healthy; workload applications exist."
     exit 0
   fi
 

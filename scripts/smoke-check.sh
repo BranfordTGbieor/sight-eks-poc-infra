@@ -138,16 +138,16 @@ check "argocd-server is Available" kubectl wait --for=condition=Available deploy
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
 app_status_check hydrosat-root Synced Healthy
-app_healthy_check hydrosat-external-secrets-operator
-app_healthy_check hydrosat-external-secrets-resources
+app_status_check hydrosat-external-secrets-operator Synced Healthy
+app_status_check hydrosat-external-secrets-resources Synced Healthy
 app_exists_check hydrosat-dagster
 app_exists_check hydrosat-alloy
 
 section "External Secrets"
-wait_for_check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
-wait_for_check "Grafana Cloud secret exists" kubectl get secret hydrosat-grafana-cloud -n monitoring
 wait_for_check "dagster DB ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-dagster-db -n dagster -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
 wait_for_check "Grafana Cloud ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-grafana-cloud -n monitoring -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
+wait_for_check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
+wait_for_check "Grafana Cloud secret exists" kubectl get secret hydrosat-grafana-cloud -n monitoring
 
 section "Dagster"
 wait_for_check "dagster webserver deployment exists" kubectl get deployment hydrosat-dagster-webserver -n dagster
