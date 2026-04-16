@@ -288,7 +288,28 @@ jobs:
             done
           done
 
-          kubectl apply --server-side -f gitops/external-secrets
+          kubectl annotate application hydrosat-external-secrets-resources -n argocd argocd.argoproj.io/refresh=hard --overwrite
+
+          for resource in \
+            "clustersecretstore/hydrosat-aws-secretsmanager" \
+            "externalsecret/hydrosat-dagster-db -n dagster" \
+            "externalsecret/hydrosat-grafana-cloud -n monitoring"; do
+            for attempt in $(seq 1 60); do
+              if kubectl get ${resource} >/dev/null 2>&1; then
+                break
+              fi
+
+              if [ "${attempt}" -eq 60 ]; then
+                echo "Timed out waiting for ${resource} to be created by Argo CD." >&2
+                kubectl get applications -n argocd || true
+                kubectl describe application hydrosat-external-secrets-resources -n argocd || true
+                exit 1
+              fi
+
+              sleep 5
+            done
+          done
+
           kubectl annotate externalsecret hydrosat-dagster-db -n dagster "force-sync=$(date +%s)" --overwrite
           kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring "force-sync=$(date +%s)" --overwrite
           kubectl wait --for=condition=Ready externalsecret/hydrosat-dagster-db -n dagster --timeout=300s
