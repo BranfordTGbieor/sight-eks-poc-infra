@@ -7,9 +7,11 @@ POLL_SECONDS="${WAIT_FOR_APPS_POLL_SECONDS:-10}"
 START_TIME="$(date +%s)"
 
 root_app="hydrosat-root"
-child_apps=(
+healthy_child_apps=(
   "hydrosat-external-secrets-operator"
   "hydrosat-external-secrets-resources"
+)
+existing_child_apps=(
   "hydrosat-dagster"
   "hydrosat-alloy"
 )
@@ -25,7 +27,7 @@ while true; do
     all_ready="false"
   fi
 
-  for app in "${child_apps[@]}"; do
+  for app in "${healthy_child_apps[@]}"; do
     if kubectl get application "${app}" -n argocd >/dev/null 2>&1; then
       health="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
       sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
@@ -40,8 +42,19 @@ while true; do
     fi
   done
 
+  for app in "${existing_child_apps[@]}"; do
+    if kubectl get application "${app}" -n argocd >/dev/null 2>&1; then
+      health="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+      sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+      printf '%s health=%s sync=%s\n' "${app}" "${health:-<none>}" "${sync:-<none>}"
+    else
+      printf '%s health=<none> sync=<none>\n' "${app}"
+      all_ready="false"
+    fi
+  done
+
   if [[ "${all_ready}" == "true" ]]; then
-    echo "Root application is synced and child applications are healthy."
+    echo "Root application is synced, External Secrets is healthy, and workload applications exist."
     exit 0
   fi
 
