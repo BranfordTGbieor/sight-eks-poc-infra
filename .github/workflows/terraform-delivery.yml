@@ -254,6 +254,22 @@ jobs:
 
       - name: Reconcile External Secrets resources
         run: |
+          for attempt in $(seq 1 60); do
+            if kubectl get deployment/hydrosat-external-secrets -n external-secrets >/dev/null 2>&1; then
+              kubectl wait --for=condition=Available deployment/hydrosat-external-secrets -n external-secrets --timeout=300s
+              break
+            fi
+
+            if [ "${attempt}" -eq 60 ]; then
+              echo "Timed out waiting for the External Secrets operator deployment to be created." >&2
+              kubectl get applications -n argocd || true
+              kubectl describe application hydrosat-external-secrets-operator -n argocd || true
+              exit 1
+            fi
+
+            sleep 5
+          done
+
           for crd in clustersecretstores.external-secrets.io externalsecrets.external-secrets.io; do
             for attempt in $(seq 1 60); do
               if kubectl get "crd/${crd}" >/dev/null 2>&1; then
