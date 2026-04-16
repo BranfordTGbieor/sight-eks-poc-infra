@@ -30,6 +30,10 @@ while true; do
       health="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
       sync="$(kubectl get application "${app}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
       printf '%s health=%s sync=%s\n' "${app}" "${health:-<none>}" "${sync:-<none>}"
+
+      if [[ "${health}" != "Healthy" ]]; then
+        all_ready="false"
+      fi
     else
       printf '%s health=<none> sync=<none>\n' "${app}"
       all_ready="false"
@@ -37,7 +41,7 @@ while true; do
   done
 
   if [[ "${all_ready}" == "true" ]]; then
-    echo "Root application is healthy and child application objects exist."
+    echo "Root application is synced and child applications are healthy."
     exit 0
   fi
 
