@@ -4,7 +4,7 @@ serviceAccount:
 
 image:
   repository: docker.io/gbieor/sight-poc-data
-  tag: v0.2.4
+  tag: v0.2.5
 
 dataLake:
   bucket: REPLACE_WITH_DATA_LAKE_BUCKET
