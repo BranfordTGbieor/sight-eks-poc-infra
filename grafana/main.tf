@@ -7,9 +7,9 @@ resource "grafana_contact_point" "exercise_slack" {
   disable_provenance = var.disable_provenance
 
   slack {
-    url = var.slack_webhook_url
+    url   = var.slack_webhook_url
     title = "{{ if eq .Status \"firing\" }}:rotating_light: Dagster job failure{{ else }}:white_check_mark: Dagster job recovered{{ end }} · {{ .CommonLabels.job }}"
-    text = <<-EOT
+    text  = <<-EOT
       {{- if gt (len .Alerts.Firing) 0 -}}
       *Status:* FIRING
       {{- else -}}
