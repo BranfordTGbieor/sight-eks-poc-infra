@@ -28,14 +28,14 @@ jobs:
         run: |
           branch="${BASE_REF:-$REF_NAME}"
           case "${branch}" in
-            main|master)
+            main)
               environment_name="dev"
               ;;
-            qa)
-              environment_name="qa"
+            tes)
+              environment_name="test"
               ;;
-            develop|dev)
-              environment_name="dev"
+            prod)
+              environment_name="prod"
               ;;
             *)
               environment_name="dev"

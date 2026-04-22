@@ -12,18 +12,9 @@ This repo owns:
 
 The paired application repo is [sight-poc-data](https://github.com/BranfordTGbieor/sight-poc-data). It builds the application image; this repo consumes and deploys it.
 
-## At a Glance
-
-| Layer | Choice |
-| --- | --- |
-| Infrastructure | Terraform |
-| Kubernetes delivery | Argo CD |
-| Runtime packaging | Helm |
-| Secrets | AWS Secrets Manager + External Secrets |
-| Observability | Grafana Cloud + Alloy |
-| CI/CD | GitHub Actions |
-
 ## Repository Layout
+
+### Stack
 
 | Path | Purpose |
 | --- | --- |
@@ -36,6 +27,15 @@ The paired application repo is [sight-poc-data](https://github.com/BranfordTGbie
 | `.github/workflows/ci.yml` | Infra validation |
 | `.github/workflows/terraform-delivery.yml` | Manual Terraform delivery |
 | `.github/workflows/grafana-alerting-delivery.yml` | Manual Grafana alerting delivery |
+
+| Layer | Choice |
+| --- | --- |
+| Infrastructure | Terraform |
+| Kubernetes delivery | Argo CD |
+| Runtime packaging | Helm |
+| Secrets | AWS Secrets Manager + External Secrets |
+| Observability | Grafana Cloud + Alloy |
+| CI/CD | GitHub Actions |
 
 ## Architecture
 
@@ -57,12 +57,14 @@ For deeper rationale and trade-offs, see [design-notes.md](./design-notes.md).
 
 Prerequisites:
 
-- AWS CLI
-- Terraform
-- kubectl
-- Helm
-- Docker
-- jq
+| Tool | Version | Install docs |
+| --- | --- | --- |
+| AWS CLI | v2 | https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html |
+| Terraform | 1.8.5 | https://developer.hashicorp.com/terraform/install |
+| kubectl | current stable | https://kubernetes.io/docs/tasks/tools/ |
+| Helm | v3 | https://helm.sh/docs/intro/install/ |
+| Docker | current stable | https://docs.docker.com/engine/install/ |
+| jq | current stable | https://jqlang.org/download/ |
 
 Prepare local Terraform inputs:
 
@@ -97,38 +99,6 @@ aws eks update-kubeconfig \
   --region "$(terraform output -raw aws_region)" \
   --name "$(terraform output -raw cluster_name)"
 ```
-
-## Dagster Image and Secrets
-
-Application images are published from `sight-poc-data`. This repo consumes an explicit image repository and tag through Helm and GitOps.
-
-Bring-up depends on:
-
-1. the RDS master secret created by Terraform
-2. a Grafana Cloud logs secret in AWS Secrets Manager
-3. a Grafana service account token if you want alert-as-code from `grafana/`
-
-Example Grafana Cloud secret payload:
-
-```json
-{
-  "logsUrl": "https://logs-prod-<stack>.grafana.net/loki/api/v1/push",
-  "logsUsername": "<stack-user-or-tenant-id>",
-  "logsPassword": "<grafana-cloud-access-policy-token>",
-  "metricsUrl": "https://prometheus-prod-<stack>.grafana.net/api/prom/push",
-  "metricsUsername": "<stack-user-or-tenant-id>",
-  "metricsPassword": "<grafana-cloud-access-policy-token>"
-}
-```
-
-Sync live values after apply:
-
-```bash
-GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
-./scripts/sync-live-config.sh
-```
-
-For the full operator sequence, use [runbook.md](./runbook.md).
 
 ## Validation
 
@@ -167,14 +137,6 @@ terraform plan
 
 Source: [utils/mermaid/delivery.mmd](./utils/mermaid/delivery.mmd)
 
-CI behavior:
-
-- branch CI validates only the surfaces that changed
-- Terraform plan runs only for `terraform/**` changes
-- Grafana validation runs only for `grafana/**` changes
-- Helm render/lint runs only for `helm/**` and `gitops/**` changes
-- expensive runs are cancelled when a newer commit supersedes them
-
 Delivery workflows are manual by design:
 
 - `terraform-delivery.yml` applies the main platform stack
@@ -182,25 +144,15 @@ Delivery workflows are manual by design:
 
 Branch mapping for this PoC:
 
-- `main` or `master` -> `dev`
-- `qa` -> `qa`
-- `develop` or `dev` -> `dev`
-
-This keeps day-to-day iteration simple while you are the only active contributor. If the repo later needs a stricter promotion model, the mapping can be tightened again.
+- `main` -> `dev`
+- `tes` -> `test`
+- `prod` -> `prod`
 
 GitHub Environments:
 
-- `dev` is the default environment for `main`
-- `qa` remains available for a separate branch if needed
-- `prod` is optional for now, not part of the default branch flow
-
-## Security and Hygiene
-
-- no committed AWS keys or static secrets
-- GitHub Actions uses role assumption via OIDC
-- live environment values come from Terraform outputs, env vars, or secrets
-- YAML mutation uses repo-owned Python scripts instead of brittle text replacement
-- `.editorconfig`, `.gitignore`, and `pre-commit` are included for baseline repo hygiene
+- `main` uses the `dev` environment by default
+- `tes` maps to `test`
+- `prod` maps to `prod`
 
 ## AI Assistance Disclosure
 
