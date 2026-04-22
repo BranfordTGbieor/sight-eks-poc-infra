@@ -1,22 +1,22 @@
 serviceAccount:
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::564268553986:role/hydrosat-dev-dagster-irsa
+    eks.amazonaws.com/role-arn: REPLACE_WITH_DAGSTER_ROLE_ARN
 
 image:
-  repository: docker.io/gbieor/hydrosat-data
+  repository: docker.io/gbieor/sight-poc-data
   tag: v0.2.4
 
 dataLake:
-  bucket: hydrosat-dev-data-lake
-  prefix: hydrosat
+  bucket: REPLACE_WITH_DATA_LAKE_BUCKET
+  prefix: sight-poc
 
 alerting:
   alertmanagerUrl: ""
 
 database:
-  host: hydrosat-dev-dagster.cunysm608k0x.us-east-1.rds.amazonaws.com
+  host: REPLACE_WITH_RDS_ADDRESS
   port: 5432
   name: dagster
   username: dagster
-  secretName: hydrosat-dagster-db
+  secretName: sight-poc-dagster-db
   createSecret: false

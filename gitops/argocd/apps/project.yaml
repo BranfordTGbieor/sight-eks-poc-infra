@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: hydrosat-platform
+  name: sight-poc-platform
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  description: Hydrosat data platform applications managed by Argo CD in the demo cluster
+  description: Sight PoC platform applications managed by Argo CD in the demo cluster
   sourceRepos:
-    - https://github.com/BranfordTGbieor/hydrosat-infra.git
+    - REPLACE_WITH_GIT_REPOSITORY_URL
     - https://grafana.github.io/helm-charts
     - https://charts.external-secrets.io
   destinations:

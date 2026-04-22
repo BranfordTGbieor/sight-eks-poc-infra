@@ -2,7 +2,7 @@ controller:
   type: deployment
   replicas: 1
   podAnnotations:
-    k8s.grafana.com/logs.job: hydrosat-alloy
+    k8s.grafana.com/logs.job: sight-poc-alloy
   resources:
     requests:
       cpu: 50m
@@ -14,7 +14,7 @@ controller:
 alloy:
   envFrom:
     - secretRef:
-        name: hydrosat-grafana-cloud
+        name: sight-poc-grafana-cloud
   mounts:
     varlog: true
     dockercontainers: true
@@ -67,7 +67,7 @@ alloy:
       loki.process "pods" {
         stage.static_labels {
           values = {
-            cluster = "hydrosat-dev-eks",
+            cluster = "REPLACE_WITH_CLUSTER_NAME",
             source  = "kubernetes_pod",
           }
         }
@@ -84,7 +84,7 @@ alloy:
       loki.process "events" {
         stage.static_labels {
           values = {
-            cluster = "hydrosat-dev-eks",
+            cluster = "REPLACE_WITH_CLUSTER_NAME",
             source  = "kubernetes_event",
           }
         }
@@ -103,7 +103,7 @@ alloy:
         }
 
         external_labels = {
-          cluster = "hydrosat-dev-eks",
+          cluster = "REPLACE_WITH_CLUSTER_NAME",
         }
       }
 
@@ -125,6 +125,6 @@ alloy:
         }
 
         external_labels = {
-          cluster = "hydrosat-dev-eks",
+          cluster = "REPLACE_WITH_CLUSTER_NAME",
         }
       }

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-user-code
+  name: {{ include "sight-poc-dagster.fullname" . }}-user-code
 spec:
   type: ClusterIP
   selector:

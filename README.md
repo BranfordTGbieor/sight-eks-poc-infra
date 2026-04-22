@@ -1,236 +1,88 @@
-# Hydrosat Infrastructure
+# Sight PoC Infrastructure
 
-![AWS](https://img.shields.io/badge/AWS-EKS%20%7C%20RDS-232F3E?logo=amazonaws&logoColor=white)
-![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA?logo=terraform&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-EKS-326CE5?logo=kubernetes&logoColor=white)
-![Argo CD](https://img.shields.io/badge/Argo%20CD-GitOps-EF7B4D?logo=argo&logoColor=white)
-![Grafana](https://img.shields.io/badge/Grafana-Observability-F46800?logo=grafana&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Infra%20CI-2088FF?logo=githubactions&logoColor=white)
+Infrastructure and GitOps repository for the Sight PoC platform on AWS.
 
-Infrastructure and GitOps repository for the Hydrosat Dagster platform on AWS.
+This repo owns:
 
-This repository owns:
+- AWS infrastructure with Terraform
+- Kubernetes packaging with Helm
+- GitOps state with Argo CD
+- External Secrets and observability configuration
+- infrastructure CI, validation, and delivery workflows
 
-- Terraform infrastructure on AWS
-- the Dagster Helm chart and runtime packaging
-- Argo CD app-of-apps manifests
-- observability stack configuration
-- External Secrets resources
-- infrastructure CI and governed Terraform delivery
-
-The Dagster application source code, tests, and container build live in the separate [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data) repository. This repo consumes a pre-built image and reconciles the platform state from Git.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Repository Layout](#repository-layout)
-- [Architecture](#architecture)
-- [Deployment Model](#deployment-model)
-- [Design Notes](#design-notes)
-- [Provisioning](#provisioning)
-- [Usage and Validation](#usage-and-validation)
-- [CI and Delivery](#ci-and-delivery)
-- [Security](#security)
-- [Conclusion](#conclusion)
-
-## Overview
-
-This implementation aims to go beyond the minimum assignment by showing a defensible operating model:
-
-- Terraform owns AWS infrastructure
-- Argo CD owns steady-state Kubernetes delivery
-- Helm packages the Dagster runtime
-- External Secrets syncs runtime secrets from AWS Secrets Manager
-- Grafana Cloud is the default observability backend for the lighter demo profile
-
-The platform remains intentionally demo-scoped. Argo CD and the observability stack run in the same cluster to keep bootstrap complexity and cloud cost under control, while still leaving a clear path toward a fuller production setup.
-
-This repo is the infrastructure half of a split-repo model:
-
-- `hydrosat-data` owns Dagster jobs, tests, and image build concerns
-- `hydrosat-infra` owns infrastructure, packaging, GitOps, and environment promotion concerns
+The paired application repo is [sight-poc-data](https://github.com/BranfordTGbieor/sight-poc-data). It builds the application image; this repo consumes and deploys it.
 
 ## At a Glance
 
-| Layer | Choice in this repo | Why |
-| --- | --- | --- |
-| Infrastructure | Terraform on AWS | Clean ownership of network, EKS, platform, and RDS layers |
-| Runtime Packaging | Helm | Keeps deploy shape separate from Dagster application source |
-| Delivery | Argo CD | GitOps as the steady-state deployment path |
-| Secrets | AWS Secrets Manager + External Secrets | Keeps credentials out of Git and Helm values |
-| Data Lake | S3-backed raw, staging, and curated layers | Supports the layered Dagster sample pipeline and future dbt work |
-| Observability | Grafana Cloud + Alloy | Keeps demo observability lightweight while preserving centralized logs |
-| CI/CD | GitHub Actions | Separate infra validation and governed Terraform delivery |
+| Layer | Choice |
+| --- | --- |
+| Infrastructure | Terraform |
+| Kubernetes delivery | Argo CD |
+| Runtime packaging | Helm |
+| Secrets | AWS Secrets Manager + External Secrets |
+| Observability | Grafana Cloud + Alloy |
+| CI/CD | GitHub Actions |
 
 ## Repository Layout
 
 | Path | Purpose |
 | --- | --- |
 | `terraform/` | Main AWS platform stack |
-| `terraform/modules/` | Reusable infrastructure modules |
-| `grafana/` | Separate Terraform root for Grafana Cloud alerting resources |
+| `terraform/modules/` | Reusable Terraform modules |
+| `grafana/` | Separate Terraform root for Grafana alerting |
 | `helm/dagster/` | Dagster Helm chart |
-| `gitops/argocd/` | Argo CD bootstrap, project, apps, and Helm values |
-| `gitops/external-secrets/` | Secret sync resources |
-| `.github/workflows/ci.yml` | Infra validation workflow |
-| `.github/workflows/terraform-delivery.yml` | Governed Terraform plan/apply workflow |
-| `.github/workflows/grafana-alerting-delivery.yml` | Separate Grafana alerting plan/apply workflow |
-
-Separation of concerns:
-
-- `terraform/` owns cloud infrastructure lifecycle
-- `helm/` owns runtime packaging
-- `gitops/` owns reconciliation and steady-state delivery
-- the Dagster application code lives outside this repo in `hydrosat-data`
+| `gitops/argocd/` | Argo CD bootstrap and application manifests |
+| `gitops/external-secrets/` | External Secret resources |
+| `.github/workflows/ci.yml` | Infra validation |
+| `.github/workflows/terraform-delivery.yml` | Manual Terraform delivery |
+| `.github/workflows/grafana-alerting-delivery.yml` | Manual Grafana alerting delivery |
 
 ## Architecture
-
-### AWS Infrastructure
 
 <img src="utils/images/aws-infra.png" alt="AWS infrastructure diagram" width="1100" />
 
 Source: [utils/mermaid/aws-infra.mmd](./utils/mermaid/aws-infra.mmd)
 
-## Deployment Model
+Key choices:
 
-### Infrastructure
+- Terraform provisions AWS network, EKS, platform, and RDS layers
+- Argo CD reconciles cluster state from Git
+- Helm packages the Dagster runtime shape
+- metadata stays in RDS rather than in-cluster Postgres
+- observability defaults to Grafana Cloud plus Alloy to keep demo cost lower
 
-Terraform in this repo focuses on the platform stack in `terraform/`.
+For deeper rationale and trade-offs, see [design-notes.md](./design-notes.md).
 
-Remote backend resources such as the S3 state bucket and DynamoDB lock table are treated as a one-time prerequisite rather than first-class infrastructure code in this repository.
+## Quick Start
 
-The platform stack is decomposed into:
+Prerequisites:
 
-- `network`
-- `eks`
-- `platform`
-- `rds`
+- AWS CLI
+- Terraform
+- kubectl
+- Helm
+- Docker
+- jq
 
-That keeps the repo focused on the actual platform while still supporting a standard remote-state workflow.
-
-### Kubernetes and Dagster
-
-Dagster runs as:
-
-- webserver deployment
-- daemon deployment
-- gRPC user-code deployment
-
-Important workload choices:
-
-- metadata lives in Amazon RDS, not in-cluster Postgres
-- schema migrations run as a dedicated Helm hook job
-- rolling updates, health probes, topology spreading, and conditional PDBs are configured in the chart
-- the user-code workload is protected with a `NetworkPolicy`
-- containers run as non-root with explicit security context
-
-The application image is expected to come from the separate `hydrosat-data` repository. This infra repo is responsible for consuming a reviewed image tag, not building application code.
-
-### GitOps
-
-Argo CD is the primary steady-state deployment path.
-
-Key manifests:
-
-| Manifest | Purpose |
-| --- | --- |
-| `gitops/argocd/bootstrap/root-application.yaml` | Seeds the Argo CD app-of-apps entrypoint |
-| `gitops/argocd/apps/project.yaml` | Defines the Argo CD project and repo boundaries |
-| `gitops/argocd/apps/hydrosat-dagster.yaml` | Reconciles the Dagster Helm release |
-| `gitops/argocd/apps/monitoring-alloy.yaml` | Reconciles the Alloy observability deployment |
-| `gitops/argocd/apps/external-secrets-operator.yaml` | Reconciles the External Secrets operator chart |
-| `gitops/argocd/apps/external-secrets-resources.yaml` | Reconciles the `ClusterSecretStore` and `ExternalSecret` resources |
-
-For this exercise, Argo CD runs in the same cluster it manages. That is a deliberate demo trade-off:
-
-- simpler bootstrap
-- lower AWS cost
-- easier end-to-end review
-
-For a larger estate, I would separate the management plane from workload clusters.
-
-### Observability
-
-The default observability path is now intentionally lighter:
-
-| Concern | Tool |
-| --- | --- |
-| Log collection | Alloy |
-| Log storage and search | Grafana Cloud Loki |
-| Dashboards and exploration | Grafana Cloud |
-
-This keeps the cluster cheaper and easier to bring up repeatedly for a demo while still showing a credible centralized observability path. A heavier in-cluster LGTM stack remains a possible future option, but it is no longer the default bring-up path for this repository.
-
-<img src="utils/images/observability.png" alt="Observability diagram" width="1100" />
-
-Source: [utils/mermaid/observability.mmd](./utils/mermaid/observability.mmd)
-
-Current coverage includes:
-
-- Kubernetes pod logs shipped by Alloy
-- Kubernetes events shipped as logs
-- Alloy self-metrics
-- Dagster workload logs for `webserver`, `daemon`, and `user-code`
-
-This is still intentionally lighter than a full in-cluster monitoring stack, but it gives a useful platform-level baseline for a demo and for Grafana Cloud alerting without duplicating low-value infrastructure metrics that AWS already exposes elsewhere.
-
-## Design Notes
-
-For design choices, trade-offs, production considerations, and implementation rationale, see [design-notes.md](./design-notes.md).
-
-## Provisioning
-
-### Prerequisites
-
-| Tool | Why it is needed |
-| --- | --- |
-| `☁️ AWS CLI` | authenticate to AWS and refresh kubeconfig |
-| `🏗️ Terraform` | provision and destroy the AWS platform stack |
-| `☸️ kubectl` | inspect and troubleshoot the cluster |
-| `⎈ Helm` | lint and render the Dagster chart locally |
-| `🐳 Docker` | work with the Dagster image flow when needed |
-| `🧰 jq` | inspect and manipulate JSON outputs during ops work |
-
-### 1. Prepare Terraform Inputs
-
-Create the backend config:
+Prepare local Terraform inputs:
 
 ```bash
 cd terraform
 cp backend.hcl.example backend.hcl
-```
-
-Create local Terraform inputs:
-
-```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Local-only files:
-
-| File | Purpose |
-| --- | --- |
-| `terraform/backend.hcl` | Backend configuration for `terraform init` |
-| `terraform/terraform.tfvars` | Local Terraform inputs |
-| `.env` | Optional convenience environment values |
-
-### 2. Prepare the Terraform Backend
-
-Create the S3 state bucket and DynamoDB lock table once in your AWS account by whatever standard method your team prefers. For this exercise, a one-time manual creation is acceptable and keeps the repo simpler.
-
-Then populate `terraform/backend.hcl` with the backend values:
+Example backend config:
 
 ```hcl
-bucket         = "hydrosat-<unique-suffix>-tf-state"
-dynamodb_table = "hydrosat-terraform-locks"
+bucket         = "sight-poc-<unique-suffix>-tf-state"
+dynamodb_table = "sight-poc-terraform-locks"
 region         = "us-east-1"
 key            = "dev/platform.tfstate"
 encrypt        = true
 ```
 
-### 3. Provision the Platform
-
-Main platform flow:
+Provision the main platform:
 
 ```bash
 terraform init -backend-config=backend.hcl
@@ -238,13 +90,7 @@ terraform plan
 terraform apply
 ```
 
-Useful optional inputs:
-
-- `extra_tags` for organization-specific tagging
-- `cluster_endpoint_public_access_cidrs` to narrow API exposure
-- `grafana_cloud_secret_arn` to scope External Secrets access to the Grafana Cloud secret
-
-### 4. Configure `kubectl`
+Refresh cluster access:
 
 ```bash
 aws eks update-kubeconfig \
@@ -252,21 +98,17 @@ aws eks update-kubeconfig \
   --name "$(terraform output -raw cluster_name)"
 ```
 
-### 5. Prepare the Dagster Image
+## Dagster Image and Secrets
 
-The application image is expected to be built and published from [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data).
+Application images are published from `sight-poc-data`. This repo consumes an explicit image repository and tag through Helm and GitOps.
 
-This infra repo consumes an explicit image repository and tag through the Helm chart. In the implemented split-repo flow, `hydrosat-data` publishes application images to Docker Hub and version-tag releases trigger this repo to update the deployed image tag through GitOps-managed values.
+Bring-up depends on:
 
-### 6. Runtime Secrets and Bootstrap Inputs
+1. the RDS master secret created by Terraform
+2. a Grafana Cloud logs secret in AWS Secrets Manager
+3. a Grafana service account token if you want alert-as-code from `grafana/`
 
-The repeatable bring-up path depends on:
-
-1. The RDS master secret created by Terraform.
-2. A separate secret for Grafana Cloud Loki credentials.
-3. A Grafana service account token for the separate `grafana/` alerting Terraform root if you want alert-as-code.
-
-Example Grafana Cloud logs secret payload:
+Example Grafana Cloud secret payload:
 
 ```json
 {
@@ -279,87 +121,38 @@ Example Grafana Cloud logs secret payload:
 }
 ```
 
-To avoid re-editing ARNs and Terraform outputs after every fresh apply, use:
+Sync live values after apply:
 
 ```bash
 GRAFANA_CLOUD_SECRET_ARN=arn:aws:secretsmanager:... \
 ./scripts/sync-live-config.sh
 ```
 
-For local/manual runs, exporting `GRAFANA_CLOUD_SECRET_ARN` is still the simplest path.
-In the GitHub Actions delivery workflow, that secret lookup is resolved automatically from AWS Secrets Manager for the target environment.
+For the full operator sequence, use [runbook.md](./runbook.md).
 
-The detailed operator sequence for syncing live values, bootstrapping Argo CD, validating Dagster, checking Grafana Cloud ingestion, and tearing down cleanly lives in [runbook.md](./runbook.md).
+## Validation
 
-## Usage and Validation
-
-### Access Dagster
-
-```bash
-kubectl get svc hydrosat-dagster-webserver -n dagster
-```
-
-Dagster endpoints:
-
-- UI: `http://<load-balancer-host>/`
-- GraphQL: `http://<load-balancer-host>/graphql`
-
-Local port-forward option:
-
-```bash
-kubectl port-forward svc/hydrosat-dagster-webserver -n dagster 3000:80
-```
-
-The application-level demo job, run config, and pass/fail simulation live in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data). Keep Dagster job execution details in that repo, and use this repo to validate platform health, GitOps delivery, and observability plumbing.
-
-Minimal operator flow for the sample pipeline:
-
-1. access the Dagster UI through the service endpoint or local port-forward
-2. launch the sample job from the Dagster UI or GraphQL API once the platform is healthy
-3. use the run configuration documented in `hydrosat-data`, including the `should_fail` toggle for controlled failure validation
-
-Detailed job definitions, run config, and pass/fail simulation remain in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data), which is the correct ownership boundary for application behavior.
-
-Current validated state:
-
-- cluster bring-up is repeatable through Terraform, GitOps sync, Argo CD bootstrap, and the repo smoke check
-- Dagster steady state is healthy on the smaller 3-node cluster profile
-- success and controlled failure runs are both proven
-- Grafana Cloud ingestion of Dagster workload logs is proven
-- Grafana alerting-as-code is proven end to end through Slack delivery
-
-For detailed bring-up checks, smoke-check interpretation, log validation, Grafana Cloud verification, and destroy-time cleanup steps, use [runbook.md](./runbook.md).
-
-### Local Verification
-
-Helm checks:
+Helm:
 
 ```bash
 helm lint helm/dagster
-helm template hydrosat-dagster helm/dagster
+helm template sight-poc-dagster helm/dagster
 ```
 
-Terraform checks:
+Terraform:
 
 ```bash
 terraform init -backend=false
 terraform validate
 ```
 
-Post-apply smoke check:
+Smoke check:
 
 ```bash
 ./scripts/smoke-check.sh
 ```
 
-This script is the fastest repo-native way to confirm that:
-
-- Argo CD is reachable and core controllers are available
-- `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are healthy
-- External Secrets produced the expected Kubernetes Secrets
-- Dagster and Alloy baseline workloads are ready
-
-Grafana alerting as code:
+Grafana alerting root:
 
 ```bash
 cd grafana
@@ -368,112 +161,47 @@ terraform init
 terraform plan
 ```
 
-That separate root manages the first Grafana Cloud alerting resources without mixing them into the AWS infrastructure state. The repo also includes a dedicated GitHub Actions workflow, `Grafana Alerting Delivery`, for applying the separate `grafana/` Terraform state after the main infra pipeline is healthy.
-
 ## CI and Delivery
 
 <img src="utils/images/delivery.png" alt="CI and delivery diagram" width="1100" />
 
 Source: [utils/mermaid/delivery.mmd](./utils/mermaid/delivery.mmd)
 
-### CI Workflow
+CI behavior:
 
-Branch CI lives in [ci.yml](.github/workflows/ci.yml).
+- branch CI validates only the surfaces that changed
+- Terraform plan runs only for `terraform/**` changes
+- Grafana validation runs only for `grafana/**` changes
+- Helm render/lint runs only for `helm/**` and `gitops/**` changes
+- expensive runs are cancelled when a newer commit supersedes them
 
-It covers:
+Delivery workflows are manual by design:
 
-- Terraform formatting
-- Checkov security scanning
-- Terraform validation for `terraform/`
-- Terraform validation for `grafana/`
-- a reviewable Terraform plan artifact when delivery variables are configured
-- Helm lint for the Dagster chart
-- Helm rendering for Dagster and GitOps-managed charts
+- `terraform-delivery.yml` applies the main platform stack
+- `grafana-alerting-delivery.yml` applies the separate Grafana root
 
-### Terraform Delivery Workflow
+Branch mapping for this PoC:
 
-Governed Terraform delivery lives in [terraform-delivery.yml](.github/workflows/terraform-delivery.yml).
-
-Design choices:
-
-- CI produces the reviewable plan before delivery is triggered
-- `apply` is separate from general CI
-- `apply` is intended to be protected by GitHub Environment approval rules
-- a gated post-apply stage bootstraps Argo CD and runs the repo smoke check
-- environment is derived from branch naming rather than manual workflow inputs
-
-Branch-to-environment mapping:
-
-- `develop` or `dev` -> `dev`
+- `main` or `master` -> `dev`
 - `qa` -> `qa`
-- `main` or `master` -> `prod`
+- `develop` or `dev` -> `dev`
 
-Tagging model:
+This keeps day-to-day iteration simple while you are the only active contributor. If the repo later needs a stricter promotion model, the mapping can be tightened again.
 
-- `Environment` remains the canonical stable environment tag
-- `GitRef` can be added as secondary traceability metadata
+GitHub Environments:
 
-After bootstrap and smoke check succeed, the workflow now writes the Dagster public hostname into the GitHub Actions step summary so the UI endpoint is easy to find without a manual `kubectl get svc`.
+- `dev` is the default environment for `main`
+- `qa` remains available for a separate branch if needed
+- `prod` is optional for now, not part of the default branch flow
 
-### Grafana Alerting Delivery Workflow
+## Security and Hygiene
 
-Grafana alerting delivery lives in [grafana-alerting-delivery.yml](.github/workflows/grafana-alerting-delivery.yml).
+- no committed AWS keys or static secrets
+- GitHub Actions uses role assumption via OIDC
+- live environment values come from Terraform outputs, env vars, or secrets
+- YAML mutation uses repo-owned Python scripts instead of brittle text replacement
+- `.editorconfig`, `.gitignore`, and `pre-commit` are included for baseline repo hygiene
 
-### GitHub Environment Protection
+## AI Assistance Disclosure
 
-For the intended CI-only apply model, create GitHub Environments named `dev`, `qa`, and `prod` in the `hydrosat-infra` repository and attach protection rules to them. Reviewer requirements and environment-scoped variables are repository settings rather than versioned repo content, so the concrete protection baseline is maintained in GitHub instead of duplicated here.
-
-Expected operator flow:
-
-1. push or open a PR on the environment-mapped branch
-2. let `Terraform Plan` run automatically
-3. review the uploaded plan artifact
-4. trigger `Terraform Delivery` manually when ready
-5. approve the environment gate in GitHub
-6. let `Terraform Apply` run with the reviewed plan artifact
-7. let the workflow complete its built-in post-apply Argo CD bootstrap and smoke-check stage
-
-### Release Ownership Model
-
-The split-repo model is intended to mirror the cleaner long-term operating model:
-
-- application changes build and publish a Dagster image from `hydrosat-data`
-- infrastructure changes own Helm values, Argo CD application state, and environment promotion in `hydrosat-infra`
-- version-tagged application releases automatically update the image tag consumed here through a bot commit in `hydrosat-infra`
-
-## Security
-
-Included security posture:
-
-| Practice | Implementation |
-| --- | --- |
-| Remote state protection | S3 versioning, encryption, public access block, DynamoDB locking |
-| AWS access from CI | GitHub Actions assumes an AWS IAM role via `AWS_TERRAFORM_ROLE_ARN`; no long-lived AWS access keys are stored in the repo |
-| Private data plane | RDS in private subnets |
-| Secret management | AWS Secrets Manager plus External Secrets |
-| Runtime hardening | Non-root pods and explicit security contexts |
-| Pod-level isolation | `NetworkPolicy` for user-code gRPC |
-| CI security scanning | Checkov in GitHub Actions |
-
-Resource tags include:
-
-- `Project`
-- `Environment`
-- `ManagedBy`
-- `Repository`
-- `Component`
-- `Name`
-
-`extra_tags` remains available for cost center, owner, or compliance metadata.
-
-## Conclusion
-
-This repository now demonstrates a complete infrastructure delivery path for the Hydrosat exercise:
-
-- AWS platform provisioning with Terraform
-- GitOps-based Kubernetes delivery through Argo CD
-- Dagster runtime packaging separated from application source ownership
-- centralized logging and alerting with Grafana Cloud
-- governed branch-based promotion through GitHub Actions
-
-The resulting setup stays intentionally demo-scoped, but it is structured around production-facing patterns rather than one-off manual steps.
+This repository was authored and manually reviewed by Branford T. Gbieor with AI assistance used for drafting, refactoring, and documentation support. Final implementation choices and committed changes were reviewed by the author.

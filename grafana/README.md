@@ -1,6 +1,6 @@
 # Grafana Alerting as Code
 
-This Terraform root manages the first Grafana Cloud alerting resources for the Hydrosat exercise without mixing them into the AWS infrastructure state.
+This Terraform root manages the first Grafana Cloud alerting resources for the Sight PoC exercise without mixing them into the AWS infrastructure state.
 
 Current scope:
 

@@ -6,12 +6,12 @@ TIMEOUT_SECONDS="${WAIT_FOR_APPS_TIMEOUT_SECONDS:-600}"
 POLL_SECONDS="${WAIT_FOR_APPS_POLL_SECONDS:-10}"
 START_TIME="$(date +%s)"
 
-root_app="hydrosat-root"
+root_app="sight-poc-root"
 child_apps=(
-  "hydrosat-external-secrets-operator"
-  "hydrosat-external-secrets-resources"
-  "hydrosat-dagster"
-  "hydrosat-alloy"
+  "sight-poc-external-secrets-operator"
+  "sight-poc-external-secrets-resources"
+  "sight-poc-dagster"
+  "sight-poc-alloy"
 )
 
 while true; do
@@ -37,7 +37,7 @@ while true; do
   done
 
   if [[ "${all_ready}" == "true" ]]; then
-    echo "Root application is healthy and child application objects exist."
+    echo "Root application is synced and child application objects exist."
     exit 0
   fi
 

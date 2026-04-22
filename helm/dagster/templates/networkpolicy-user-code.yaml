@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-user-code
+  name: {{ include "sight-poc-dagster.fullname" . }}-user-code
 spec:
   podSelector:
     matchLabels:

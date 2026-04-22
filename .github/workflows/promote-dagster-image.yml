@@ -14,14 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update Dagster image values
         env:
           IMAGE_REPOSITORY: ${{ github.event.client_payload.image_repository }}
           IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
-        run: |
-          perl -0pi -e 's#repository: .*#repository: '"${IMAGE_REPOSITORY}"'#; s#tag: .*#tag: '"${IMAGE_TAG}"'#' helm/dagster/values-gitops.yaml
+        run: python3 ./scripts/update_dagster_image_values.py
 
       - name: Commit promoted image tag
         env:

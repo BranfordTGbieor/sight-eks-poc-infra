@@ -24,7 +24,7 @@ jobs:
           branch="${BASE_REF:-$REF_NAME}"
           case "${branch}" in
             main|master)
-              environment_name="prod"
+              environment_name="dev"
               ;;
             qa)
               environment_name="qa"
@@ -51,14 +51,14 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
       GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
-      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
-      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'sight_poc_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Sight PoC Alerting' }}
       GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
       GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
       GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate required Grafana inputs
         run: |
@@ -81,12 +81,12 @@ jobs:
           fi
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.8.5
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -113,7 +113,7 @@ jobs:
           grafana_auth = "${GRAFANA_AUTH}"
           slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
           loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
-          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          cluster_name = "sight-poc-${TARGET_ENVIRONMENT}-eks"
           dagster_namespace = "dagster"
           dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
           alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"
@@ -201,14 +201,14 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
       GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
-      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
-      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'sight_poc_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Sight PoC Alerting' }}
       GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
       GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
       GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate required Grafana inputs
         run: |
@@ -231,12 +231,12 @@ jobs:
           fi
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.8.5
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -263,7 +263,7 @@ jobs:
           grafana_auth = "${GRAFANA_AUTH}"
           slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
           loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
-          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          cluster_name = "sight-poc-${TARGET_ENVIRONMENT}-eks"
           dagster_namespace = "dagster"
           dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
           alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"

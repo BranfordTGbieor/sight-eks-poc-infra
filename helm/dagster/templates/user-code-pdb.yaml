@@ -2,7 +2,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-user-code
+  name: {{ include "sight-poc-dagster.fullname" . }}-user-code
 spec:
   minAvailable: {{ .Values.dagster.userCode.podDisruptionBudget.minAvailable }}
   selector:

@@ -3,13 +3,13 @@ resource "grafana_folder" "alerting" {
 }
 
 resource "grafana_contact_point" "exercise_slack" {
-  name               = "Hydrosat Exercise Slack"
+  name               = "Sight PoC Exercise Slack"
   disable_provenance = var.disable_provenance
 
   slack {
-    url = var.slack_webhook_url
+    url   = var.slack_webhook_url
     title = "{{ if eq .Status \"firing\" }}:rotating_light: Dagster job failure{{ else }}:white_check_mark: Dagster job recovered{{ end }} · {{ .CommonLabels.job }}"
-    text = <<-EOT
+    text  = <<-EOT
       {{- if gt (len .Alerts.Firing) 0 -}}
       *Status:* FIRING
       {{- else -}}
@@ -61,7 +61,7 @@ resource "grafana_notification_policy" "root" {
 }
 
 resource "grafana_rule_group" "dagster" {
-  name               = "Hydrosat Dagster Alerts"
+  name               = "Sight PoC Dagster Alerts"
   folder_uid         = grafana_folder.alerting.uid
   interval_seconds   = 60
   disable_provenance = var.disable_provenance

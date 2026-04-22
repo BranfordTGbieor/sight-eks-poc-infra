@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-daemon
+  name: {{ include "sight-poc-dagster.fullname" . }}-daemon
 spec:
   replicas: {{ .Values.dagster.daemon.replicaCount }}
   selector:
@@ -16,7 +16,7 @@ spec:
     spec:
       securityContext:
 {{ toYaml .Values.dagster.podSecurityContext | indent 8 }}
-      serviceAccountName: {{ include "hydrosat-dagster.serviceAccountName" . }}
+      serviceAccountName: {{ include "sight-poc-dagster.serviceAccountName" . }}
       containers:
         - name: daemon
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -34,13 +34,13 @@ spec:
             - name: DAGSTER_PG_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "hydrosat-dagster.databaseSecretName" . }}
+                  name: {{ include "sight-poc-dagster.databaseSecretName" . }}
                   key: {{ .Values.database.secretKeys.url }}
             - name: ALERTMANAGER_URL
               value: {{ .Values.alerting.alertmanagerUrl | quote }}
-            - name: HYDROSAT_DATA_LAKE_BUCKET
+            - name: SIGHT_POC_DATA_LAKE_BUCKET
               value: {{ .Values.dataLake.bucket | quote }}
-            - name: HYDROSAT_DATA_LAKE_PREFIX
+            - name: SIGHT_POC_DATA_LAKE_PREFIX
               value: {{ .Values.dataLake.prefix | quote }}
           resources:
 {{ toYaml .Values.dagster.daemon.resources | indent 12 }}
@@ -53,13 +53,13 @@ spec:
       volumes:
         - name: dagster-config
           configMap:
-            name: {{ include "hydrosat-dagster.fullname" . }}-config
+            name: {{ include "sight-poc-dagster.fullname" . }}-config
             items:
               - key: dagster.yaml
                 path: dagster.yaml
         - name: workspace
           configMap:
-            name: {{ include "hydrosat-dagster.fullname" . }}-config
+            name: {{ include "sight-poc-dagster.fullname" . }}-config
             items:
               - key: workspace.yaml
                 path: workspace.yaml
