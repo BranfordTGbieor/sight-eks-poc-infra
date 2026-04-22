@@ -1,6 +1,6 @@
 apiVersion: v2
-name: hydrosat-dagster
-description: Minimal Dagster platform chart for the Hydrosat take-home.
+name: sight-poc-dagster
+description: Minimal Dagster platform chart for the Sight PoC take-home.
 type: application
 version: 0.1.0
 appVersion: "1.0.0"

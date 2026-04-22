@@ -137,30 +137,30 @@ check "argocd-server deployment exists" kubectl get deployment argocd-server -n 
 check "argocd-server is Available" kubectl wait --for=condition=Available deployment/argocd-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-repo-server is Available" kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout="${WAIT_TIMEOUT}"
 check "argocd-applicationset-controller is Available" kubectl wait --for=condition=Available deployment/argocd-applicationset-controller -n argocd --timeout="${WAIT_TIMEOUT}"
-app_status_check hydrosat-root Synced Healthy
-app_healthy_check hydrosat-external-secrets-operator
-app_healthy_check hydrosat-external-secrets-resources
-app_exists_check hydrosat-dagster
-app_exists_check hydrosat-alloy
+app_status_check sight-poc-root Synced Healthy
+app_healthy_check sight-poc-external-secrets-operator
+app_healthy_check sight-poc-external-secrets-resources
+app_exists_check sight-poc-dagster
+app_exists_check sight-poc-alloy
 
 section "External Secrets"
-wait_for_check "dagster DB ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-dagster-db -n dagster -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
-wait_for_check "Grafana Cloud ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret hydrosat-grafana-cloud -n monitoring -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
-wait_for_check "dagster DB secret exists" kubectl get secret hydrosat-dagster-db -n dagster
-wait_for_check "Grafana Cloud secret exists" kubectl get secret hydrosat-grafana-cloud -n monitoring
+wait_for_check "dagster DB ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret sight-poc-dagster-db -n dagster -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
+wait_for_check "Grafana Cloud ExternalSecret is Ready" bash -lc "[[ \"\$(kubectl get externalsecret sight-poc-grafana-cloud -n monitoring -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null)\" == \"True\" ]]"
+wait_for_check "dagster DB secret exists" kubectl get secret sight-poc-dagster-db -n dagster
+wait_for_check "Grafana Cloud secret exists" kubectl get secret sight-poc-grafana-cloud -n monitoring
 
 section "Dagster"
-wait_for_check "dagster webserver deployment exists" kubectl get deployment hydrosat-dagster-webserver -n dagster
-wait_for_check "dagster daemon deployment exists" kubectl get deployment hydrosat-dagster-daemon -n dagster
-wait_for_check "dagster user-code deployment exists" kubectl get deployment hydrosat-dagster-user-code -n dagster
-check "dagster webserver deployment is Available" kubectl rollout status deployment/hydrosat-dagster-webserver -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
-check "dagster daemon deployment is Available" kubectl rollout status deployment/hydrosat-dagster-daemon -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
-check "dagster user-code deployment is Available" kubectl rollout status deployment/hydrosat-dagster-user-code -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
-wait_for_check "dagster webserver service exists" kubectl get service hydrosat-dagster-webserver -n dagster
+wait_for_check "dagster webserver deployment exists" kubectl get deployment sight-poc-dagster-webserver -n dagster
+wait_for_check "dagster daemon deployment exists" kubectl get deployment sight-poc-dagster-daemon -n dagster
+wait_for_check "dagster user-code deployment exists" kubectl get deployment sight-poc-dagster-user-code -n dagster
+check "dagster webserver deployment is Available" kubectl rollout status deployment/sight-poc-dagster-webserver -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
+check "dagster daemon deployment is Available" kubectl rollout status deployment/sight-poc-dagster-daemon -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
+check "dagster user-code deployment is Available" kubectl rollout status deployment/sight-poc-dagster-user-code -n dagster --timeout="${ROLLOUT_WAIT_TIMEOUT}"
+wait_for_check "dagster webserver service exists" kubectl get service sight-poc-dagster-webserver -n dagster
 
 section "Monitoring"
-wait_for_check "Alloy deployment exists" kubectl get deployment hydrosat-alloy -n monitoring
-check "Alloy deployment is Available" kubectl wait --for=condition=Available deployment/hydrosat-alloy -n monitoring --timeout="${WAIT_TIMEOUT}"
+wait_for_check "Alloy deployment exists" kubectl get deployment sight-poc-alloy -n monitoring
+check "Alloy deployment is Available" kubectl wait --for=condition=Available deployment/sight-poc-alloy -n monitoring --timeout="${WAIT_TIMEOUT}"
 
 section "Summary"
 if [[ "$failures" -eq 0 ]]; then

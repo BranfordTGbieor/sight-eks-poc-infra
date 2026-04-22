@@ -87,19 +87,19 @@ jobs:
           helm repo update
 
       - name: Render Dagster chart
-        run: helm template hydrosat-dagster ./helm/dagster >/tmp/hydrosat-dagster-rendered.yaml
+        run: helm template sight-poc-dagster ./helm/dagster >/tmp/sight-poc-dagster-rendered.yaml
 
       - name: Render observability charts
         run: |
-          helm template hydrosat-alloy grafana/alloy \
+          helm template sight-poc-alloy grafana/alloy \
             --version 1.5.3 \
-            -f gitops/argocd/values/alloy-values.yaml >/tmp/hydrosat-alloy-rendered.yaml
+            -f gitops/argocd/values/alloy-values.yaml >/tmp/sight-poc-alloy-rendered.yaml
 
       - name: Render External Secrets operator chart
         run: |
-          helm template hydrosat-external-secrets external-secrets/external-secrets \
+          helm template sight-poc-external-secrets external-secrets/external-secrets \
             --version 2.2.0 \
-            -f gitops/argocd/values/external-secrets-values.yaml >/tmp/hydrosat-external-secrets-rendered.yaml
+            -f gitops/argocd/values/external-secrets-values.yaml >/tmp/sight-poc-external-secrets-rendered.yaml
 
   plan:
     name: Reviewable Terraform Plan

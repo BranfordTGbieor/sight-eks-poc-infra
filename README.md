@@ -1,4 +1,4 @@
-# Hydrosat Infrastructure
+# Sight PoC Infrastructure
 
 ![AWS](https://img.shields.io/badge/AWS-EKS%20%7C%20RDS-232F3E?logo=amazonaws&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA?logo=terraform&logoColor=white)
@@ -7,7 +7,9 @@
 ![Grafana](https://img.shields.io/badge/Grafana-Observability-F46800?logo=grafana&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Infra%20CI-2088FF?logo=githubactions&logoColor=white)
 
-Infrastructure and GitOps repository for the Hydrosat Dagster platform on AWS.
+Infrastructure and GitOps repository for the Sight PoC platform on AWS.
+
+This repository is the infrastructure half of the remodel from the original assessment submission into the portfolio-facing Sight PoC MVP. The current runtime remains Dagster-based today; the Airflow migration belongs to a later application slice.
 
 This repository owns:
 
@@ -18,7 +20,7 @@ This repository owns:
 - External Secrets resources
 - infrastructure CI and governed Terraform delivery
 
-The Dagster application source code, tests, and container build live in the separate [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data) repository. This repo consumes a pre-built image and reconciles the platform state from Git.
+The application source code, tests, and container build live in the paired data repository. This repo consumes a pre-built image and reconciles the platform state from Git.
 
 ## Table of Contents
 
@@ -35,7 +37,7 @@ The Dagster application source code, tests, and container build live in the sepa
 
 ## Overview
 
-This implementation aims to go beyond the minimum assignment by showing a defensible operating model:
+This implementation aims to show a defensible operating model first, then layer in MVP-facing features:
 
 - Terraform owns AWS infrastructure
 - Argo CD owns steady-state Kubernetes delivery
@@ -47,8 +49,18 @@ The platform remains intentionally demo-scoped. Argo CD and the observability st
 
 This repo is the infrastructure half of a split-repo model:
 
-- `hydrosat-data` owns Dagster jobs, tests, and image build concerns
-- `hydrosat-infra` owns infrastructure, packaging, GitOps, and environment promotion concerns
+- the data repo owns orchestration code, tests, and image build concerns
+- this infra repo owns infrastructure, packaging, GitOps, and environment promotion concerns
+
+## Submission Hygiene
+
+- Environment-specific live values now start from placeholders and are rendered from Terraform outputs or workflow context instead of committed account-specific identifiers.
+- YAML mutation in automation uses repo-owned Python scripts rather than Perl-based string replacement.
+- `.editorconfig` and `pre-commit` are included so repo hygiene is explicit instead of implicit.
+
+## AI Assistance Disclosure
+
+This repository was authored and manually reviewed by Branford T. Gbieor with AI assistance used for drafting, refactoring, and documentation support. The final implementation choices, validation steps, and committed changes are intentionally reviewed and owned by the author.
 
 ## At a Glance
 
@@ -81,7 +93,7 @@ Separation of concerns:
 - `terraform/` owns cloud infrastructure lifecycle
 - `helm/` owns runtime packaging
 - `gitops/` owns reconciliation and steady-state delivery
-- the Dagster application code lives outside this repo in `hydrosat-data`
+- the Dagster application code lives outside this repo in `sight-poc-data`
 
 ## Architecture
 
@@ -124,7 +136,7 @@ Important workload choices:
 - the user-code workload is protected with a `NetworkPolicy`
 - containers run as non-root with explicit security context
 
-The application image is expected to come from the separate `hydrosat-data` repository. This infra repo is responsible for consuming a reviewed image tag, not building application code.
+The application image is expected to come from the separate `sight-poc-data` repository. This infra repo is responsible for consuming a reviewed image tag, not building application code.
 
 ### GitOps
 
@@ -136,7 +148,7 @@ Key manifests:
 | --- | --- |
 | `gitops/argocd/bootstrap/root-application.yaml` | Seeds the Argo CD app-of-apps entrypoint |
 | `gitops/argocd/apps/project.yaml` | Defines the Argo CD project and repo boundaries |
-| `gitops/argocd/apps/hydrosat-dagster.yaml` | Reconciles the Dagster Helm release |
+| `gitops/argocd/apps/sight-poc-dagster.yaml` | Reconciles the Dagster Helm release |
 | `gitops/argocd/apps/monitoring-alloy.yaml` | Reconciles the Alloy observability deployment |
 | `gitops/argocd/apps/external-secrets-operator.yaml` | Reconciles the External Secrets operator chart |
 | `gitops/argocd/apps/external-secrets-resources.yaml` | Reconciles the `ClusterSecretStore` and `ExternalSecret` resources |
@@ -221,8 +233,8 @@ Create the S3 state bucket and DynamoDB lock table once in your AWS account by w
 Then populate `terraform/backend.hcl` with the backend values:
 
 ```hcl
-bucket         = "hydrosat-<unique-suffix>-tf-state"
-dynamodb_table = "hydrosat-terraform-locks"
+bucket         = "sight-poc-<unique-suffix>-tf-state"
+dynamodb_table = "sight-poc-terraform-locks"
 region         = "us-east-1"
 key            = "dev/platform.tfstate"
 encrypt        = true
@@ -254,9 +266,9 @@ aws eks update-kubeconfig \
 
 ### 5. Prepare the Dagster Image
 
-The application image is expected to be built and published from [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data).
+The application image is expected to be built and published from [sight-poc-data](https://github.com/BranfordTGbieor/sight-poc-data).
 
-This infra repo consumes an explicit image repository and tag through the Helm chart. In the implemented split-repo flow, `hydrosat-data` publishes application images to Docker Hub and version-tag releases trigger this repo to update the deployed image tag through GitOps-managed values.
+This infra repo consumes an explicit image repository and tag through the Helm chart. In the implemented split-repo flow, `sight-poc-data` publishes application images to Docker Hub and version-tag releases trigger this repo to update the deployed image tag through GitOps-managed values.
 
 ### 6. Runtime Secrets and Bootstrap Inputs
 
@@ -296,7 +308,7 @@ The detailed operator sequence for syncing live values, bootstrapping Argo CD, v
 ### Access Dagster
 
 ```bash
-kubectl get svc hydrosat-dagster-webserver -n dagster
+kubectl get svc sight-poc-dagster-webserver -n dagster
 ```
 
 Dagster endpoints:
@@ -307,18 +319,18 @@ Dagster endpoints:
 Local port-forward option:
 
 ```bash
-kubectl port-forward svc/hydrosat-dagster-webserver -n dagster 3000:80
+kubectl port-forward svc/sight-poc-dagster-webserver -n dagster 3000:80
 ```
 
-The application-level demo job, run config, and pass/fail simulation live in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data). Keep Dagster job execution details in that repo, and use this repo to validate platform health, GitOps delivery, and observability plumbing.
+The application-level demo job, run config, and pass/fail simulation live in [sight-poc-data](https://github.com/BranfordTGbieor/sight-poc-data). Keep Dagster job execution details in that repo, and use this repo to validate platform health, GitOps delivery, and observability plumbing.
 
 Minimal operator flow for the sample pipeline:
 
 1. access the Dagster UI through the service endpoint or local port-forward
 2. launch the sample job from the Dagster UI or GraphQL API once the platform is healthy
-3. use the run configuration documented in `hydrosat-data`, including the `should_fail` toggle for controlled failure validation
+3. use the run configuration documented in `sight-poc-data`, including the `should_fail` toggle for controlled failure validation
 
-Detailed job definitions, run config, and pass/fail simulation remain in [hydrosat-data](https://github.com/BranfordTGbieor/hydrosat-data), which is the correct ownership boundary for application behavior.
+Detailed job definitions, run config, and pass/fail simulation remain in [sight-poc-data](https://github.com/BranfordTGbieor/sight-poc-data), which is the correct ownership boundary for application behavior.
 
 Current validated state:
 
@@ -336,7 +348,7 @@ Helm checks:
 
 ```bash
 helm lint helm/dagster
-helm template hydrosat-dagster helm/dagster
+helm template sight-poc-dagster helm/dagster
 ```
 
 Terraform checks:
@@ -355,7 +367,7 @@ Post-apply smoke check:
 This script is the fastest repo-native way to confirm that:
 
 - Argo CD is reachable and core controllers are available
-- `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are healthy
+- `sight-poc-root`, `sight-poc-dagster`, and `sight-poc-alloy` are healthy
 - External Secrets produced the expected Kubernetes Secrets
 - Dagster and Alloy baseline workloads are ready
 
@@ -421,7 +433,7 @@ Grafana alerting delivery lives in [grafana-alerting-delivery.yml](.github/workf
 
 ### GitHub Environment Protection
 
-For the intended CI-only apply model, create GitHub Environments named `dev`, `qa`, and `prod` in the `hydrosat-infra` repository and attach protection rules to them. Reviewer requirements and environment-scoped variables are repository settings rather than versioned repo content, so the concrete protection baseline is maintained in GitHub instead of duplicated here.
+For the intended CI-only apply model, create GitHub Environments named `dev`, `qa`, and `prod` in the `sight-poc-infra` repository and attach protection rules to them. Reviewer requirements and environment-scoped variables are repository settings rather than versioned repo content, so the concrete protection baseline is maintained in GitHub instead of duplicated here.
 
 Expected operator flow:
 
@@ -437,9 +449,9 @@ Expected operator flow:
 
 The split-repo model is intended to mirror the cleaner long-term operating model:
 
-- application changes build and publish a Dagster image from `hydrosat-data`
-- infrastructure changes own Helm values, Argo CD application state, and environment promotion in `hydrosat-infra`
-- version-tagged application releases automatically update the image tag consumed here through a bot commit in `hydrosat-infra`
+- application changes build and publish a Dagster image from `sight-poc-data`
+- infrastructure changes own Helm values, Argo CD application state, and environment promotion in `sight-poc-infra`
+- version-tagged application releases automatically update the image tag consumed here through a bot commit in `sight-poc-infra`
 
 ## Security
 
@@ -468,7 +480,7 @@ Resource tags include:
 
 ## Conclusion
 
-This repository now demonstrates a complete infrastructure delivery path for the Hydrosat exercise:
+This repository now demonstrates a complete infrastructure delivery path for the Sight PoC exercise:
 
 - AWS platform provisioning with Terraform
 - GitOps-based Kubernetes delivery through Argo CD

@@ -5,12 +5,12 @@ image:
 
 serviceAccount:
   create: true
-  name: hydrosat-dagster
+  name: sight-poc-dagster
   annotations: {}
 
 dataLake:
   bucket: ""
-  prefix: hydrosat
+  prefix: sight-poc
 
 alerting:
   alertmanagerUrl: ""
@@ -104,7 +104,7 @@ database:
   port: 5432
   name: dagster
   username: dagster
-  secretName: hydrosat-dagster-db
+  secretName: sight-poc-dagster-db
   createSecret: false
   password: ""
   secretKeys:

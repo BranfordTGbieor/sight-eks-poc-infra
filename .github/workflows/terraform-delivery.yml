@@ -80,7 +80,7 @@ jobs:
 
       - name: Resolve Grafana Cloud secret ARN
         run: |
-          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
+          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-sight-poc/${TARGET_ENVIRONMENT}/grafana-cloud}"
           secret_arn="$(aws secretsmanager list-secrets \
             --region "${AWS_REGION}" \
             --filters Key=name,Values="${secret_name}" \
@@ -128,7 +128,7 @@ jobs:
       - name: Import existing flow log group if needed
         working-directory: terraform
         run: |
-          log_group_name="/aws/vpc/hydrosat-${TARGET_ENVIRONMENT}/flow-logs"
+          log_group_name="/aws/vpc/sight-poc-${TARGET_ENVIRONMENT}/flow-logs"
 
           if terraform state show 'module.network.aws_cloudwatch_log_group.flow_logs[0]' >/dev/null 2>&1; then
             echo "Flow log group already tracked in Terraform state."
@@ -209,7 +209,7 @@ jobs:
             exit 0
           fi
 
-          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-hydrosat/${TARGET_ENVIRONMENT}/grafana-cloud}"
+          secret_name="${GRAFANA_CLOUD_SECRET_NAME_OVERRIDE:-sight-poc/${TARGET_ENVIRONMENT}/grafana-cloud}"
           secret_arn="$(aws secretsmanager list-secrets \
             --region "${AWS_REGION}" \
             --filters Key=name,Values="${secret_name}" \
@@ -255,15 +255,15 @@ jobs:
       - name: Reconcile External Secrets resources
         run: |
           for attempt in $(seq 1 60); do
-            if kubectl get deployment/hydrosat-external-secrets -n external-secrets >/dev/null 2>&1; then
-              kubectl wait --for=condition=Available deployment/hydrosat-external-secrets -n external-secrets --timeout=300s
+            if kubectl get deployment/sight-poc-external-secrets -n external-secrets >/dev/null 2>&1; then
+              kubectl wait --for=condition=Available deployment/sight-poc-external-secrets -n external-secrets --timeout=300s
               break
             fi
 
             if [ "${attempt}" -eq 60 ]; then
               echo "Timed out waiting for the External Secrets operator deployment to be created." >&2
               kubectl get applications -n argocd || true
-              kubectl describe application hydrosat-external-secrets-operator -n argocd || true
+              kubectl describe application sight-poc-external-secrets-operator -n argocd || true
               exit 1
             fi
 
@@ -280,7 +280,7 @@ jobs:
               if [ "${attempt}" -eq 60 ]; then
                 echo "Timed out waiting for CRD ${crd} to be created." >&2
                 kubectl get applications -n argocd || true
-                kubectl describe application hydrosat-external-secrets-operator -n argocd || true
+                kubectl describe application sight-poc-external-secrets-operator -n argocd || true
                 exit 1
               fi
 
@@ -288,12 +288,12 @@ jobs:
             done
           done
 
-          kubectl annotate application hydrosat-external-secrets-resources -n argocd argocd.argoproj.io/refresh=hard --overwrite
+          kubectl annotate application sight-poc-external-secrets-resources -n argocd argocd.argoproj.io/refresh=hard --overwrite
 
           for resource in \
-            "clustersecretstore/hydrosat-aws-secretsmanager" \
-            "externalsecret/hydrosat-dagster-db -n dagster" \
-            "externalsecret/hydrosat-grafana-cloud -n monitoring"; do
+            "clustersecretstore/sight-poc-aws-secretsmanager" \
+            "externalsecret/sight-poc-dagster-db -n dagster" \
+            "externalsecret/sight-poc-grafana-cloud -n monitoring"; do
             for attempt in $(seq 1 60); do
               if kubectl get ${resource} >/dev/null 2>&1; then
                 break
@@ -302,7 +302,7 @@ jobs:
               if [ "${attempt}" -eq 60 ]; then
                 echo "Timed out waiting for ${resource} to be created by Argo CD." >&2
                 kubectl get applications -n argocd || true
-                kubectl describe application hydrosat-external-secrets-resources -n argocd || true
+                kubectl describe application sight-poc-external-secrets-resources -n argocd || true
                 exit 1
               fi
 
@@ -310,10 +310,10 @@ jobs:
             done
           done
 
-          kubectl annotate externalsecret hydrosat-dagster-db -n dagster "force-sync=$(date +%s)" --overwrite
-          kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring "force-sync=$(date +%s)" --overwrite
-          kubectl wait --for=condition=Ready externalsecret/hydrosat-dagster-db -n dagster --timeout=300s
-          kubectl wait --for=condition=Ready externalsecret/hydrosat-grafana-cloud -n monitoring --timeout=300s
+          kubectl annotate externalsecret sight-poc-dagster-db -n dagster "force-sync=$(date +%s)" --overwrite
+          kubectl annotate externalsecret sight-poc-grafana-cloud -n monitoring "force-sync=$(date +%s)" --overwrite
+          kubectl wait --for=condition=Ready externalsecret/sight-poc-dagster-db -n dagster --timeout=300s
+          kubectl wait --for=condition=Ready externalsecret/sight-poc-grafana-cloud -n monitoring --timeout=300s
 
       - name: Run smoke check
         run: ./scripts/smoke-check.sh
@@ -323,7 +323,7 @@ jobs:
 
       - name: Publish Dagster endpoint summary
         run: |
-          dagster_hostname="$(kubectl get svc hydrosat-dagster-webserver -n dagster -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+          dagster_hostname="$(kubectl get svc sight-poc-dagster-webserver -n dagster -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 
           {
             echo "## Dagster Endpoint"
@@ -343,20 +343,20 @@ jobs:
           kubectl get applications -n argocd || true
 
           echo
-          echo "== hydrosat-external-secrets-resources ==" 
-          kubectl describe application hydrosat-external-secrets-resources -n argocd || true
+          echo "== sight-poc-external-secrets-resources ==" 
+          kubectl describe application sight-poc-external-secrets-resources -n argocd || true
 
           echo
           echo "== external secrets ==" 
           kubectl get externalsecret -A || true
 
           echo
-          echo "== hydrosat-dagster-db externalsecret ==" 
-          kubectl describe externalsecret hydrosat-dagster-db -n dagster || true
+          echo "== sight-poc-dagster-db externalsecret ==" 
+          kubectl describe externalsecret sight-poc-dagster-db -n dagster || true
 
           echo
-          echo "== hydrosat-grafana-cloud externalsecret ==" 
-          kubectl describe externalsecret hydrosat-grafana-cloud -n monitoring || true
+          echo "== sight-poc-grafana-cloud externalsecret ==" 
+          kubectl describe externalsecret sight-poc-grafana-cloud -n monitoring || true
 
           echo
           echo "== cluster secret stores ==" 
@@ -364,7 +364,7 @@ jobs:
 
           echo
           echo "== external secrets operator logs ==" 
-          kubectl logs deployment/hydrosat-external-secrets -n external-secrets --tail=200 || true
+          kubectl logs deployment/sight-poc-external-secrets -n external-secrets --tail=200 || true
 
           echo
           echo "== dagster deployments ==" 
@@ -376,16 +376,16 @@ jobs:
 
           echo
           echo "== dagster daemon deployment ==" 
-          kubectl describe deployment hydrosat-dagster-daemon -n dagster || true
+          kubectl describe deployment sight-poc-dagster-daemon -n dagster || true
 
           echo
           echo "== dagster user-code deployment ==" 
-          kubectl describe deployment hydrosat-dagster-user-code -n dagster || true
+          kubectl describe deployment sight-poc-dagster-user-code -n dagster || true
 
           echo
           echo "== dagster daemon pod logs ==" 
-          kubectl logs deployment/hydrosat-dagster-daemon -n dagster --tail=200 || true
+          kubectl logs deployment/sight-poc-dagster-daemon -n dagster --tail=200 || true
 
           echo
           echo "== dagster user-code pod logs ==" 
-          kubectl logs deployment/hydrosat-dagster-user-code -n dagster --tail=200 || true
+          kubectl logs deployment/sight-poc-dagster-user-code -n dagster --tail=200 || true

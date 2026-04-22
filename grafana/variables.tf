@@ -23,19 +23,19 @@ variable "loki_datasource_uid" {
 variable "alert_folder_title" {
   description = "Folder title used to store provisioned Grafana-managed alert rules."
   type        = string
-  default     = "Hydrosat Alerting"
+  default     = "Sight PoC Alerting"
 }
 
 variable "dagster_job_name" {
   description = "Dagster job name used in the first failure alert."
   type        = string
-  default     = "hydrosat_lakehouse_job"
+  default     = "sight_poc_lakehouse_job"
 }
 
 variable "cluster_name" {
   description = "Cluster label used in the Loki query."
   type        = string
-  default     = "hydrosat-dev-eks"
+  default     = "sight-poc-dev-eks"
 }
 
 variable "dagster_namespace" {

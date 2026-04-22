@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-user-code
+  name: {{ include "sight-poc-dagster.fullname" . }}-user-code
 spec:
   replicas: {{ .Values.dagster.userCode.replicaCount }}
   strategy:
@@ -18,7 +18,7 @@ spec:
     spec:
       securityContext:
 {{ toYaml .Values.dagster.podSecurityContext | indent 8 }}
-      serviceAccountName: {{ include "hydrosat-dagster.serviceAccountName" . }}
+      serviceAccountName: {{ include "sight-poc-dagster.serviceAccountName" . }}
 {{- if .Values.dagster.topologySpread.enabled }}
       topologySpreadConstraints:
         - maxSkew: {{ .Values.dagster.topologySpread.maxSkew }}
@@ -44,21 +44,21 @@ spec:
             - --port
             - "{{ .Values.dagster.grpcPort }}"
             - -m
-            - hydrosat_dagster.definitions
+            - sight_poc_dagster.definitions
           ports:
             - name: grpc
               containerPort: {{ .Values.dagster.grpcPort }}
           env:
             - name: ALERTMANAGER_URL
               value: {{ .Values.alerting.alertmanagerUrl | quote }}
-            - name: HYDROSAT_DATA_LAKE_BUCKET
+            - name: SIGHT_POC_DATA_LAKE_BUCKET
               value: {{ .Values.dataLake.bucket | quote }}
-            - name: HYDROSAT_DATA_LAKE_PREFIX
+            - name: SIGHT_POC_DATA_LAKE_PREFIX
               value: {{ .Values.dataLake.prefix | quote }}
             - name: DAGSTER_PG_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "hydrosat-dagster.databaseSecretName" . }}
+                  name: {{ include "sight-poc-dagster.databaseSecretName" . }}
                   key: {{ .Values.database.secretKeys.url }}
           resources:
 {{ toYaml .Values.dagster.userCode.resources | indent 12 }}

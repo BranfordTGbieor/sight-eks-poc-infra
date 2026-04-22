@@ -16,7 +16,7 @@ What the root application manages:
 - `gitops/argocd/apps/project.yaml`
 - `gitops/argocd/apps/external-secrets-operator.yaml`
 - `gitops/argocd/apps/external-secrets-resources.yaml`
-- `gitops/argocd/apps/hydrosat-dagster.yaml`
+- `gitops/argocd/apps/sight-poc-dagster.yaml`
 - `gitops/argocd/apps/monitoring-alloy.yaml`
 
 Sync ordering:

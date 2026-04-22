@@ -1,4 +1,4 @@
-# Hydrosat Infra Bring-Up Runbook
+# Sight PoC Infra Bring-Up Runbook
 
 Use this runbook after `terraform apply` when you want to get the platform up again quickly.
 
@@ -14,10 +14,10 @@ This is intentionally shorter than the earlier validation-heavy version. It focu
 
 This runbook assumes:
 
-- repo root is `hydrosat-infra/`
+- repo root is `sight-poc-infra/`
 - Terraform apply has completed successfully
 - AWS CLI, `kubectl`, `terraform`, and `git` work locally
-- the `hydrosat-data` image tag already exists and has passed CI before release
+- the `sight-poc-data` image tag already exists and has passed CI before release
 
 ## 1. Required Inputs
 
@@ -41,7 +41,7 @@ terraform -chdir=terraform output
 
 aws secretsmanager describe-secret \
   --region us-east-1 \
-  --secret-id hydrosat/dev/grafana-cloud \
+  --secret-id sight-poc/dev/grafana-cloud \
   --query ARN \
   --output text
 ```
@@ -65,7 +65,7 @@ Expected result:
 Note:
 
 - for local/manual runs, export `GRAFANA_CLOUD_SECRET_ARN` explicitly
-- in the GitHub Actions delivery workflow, the ARN is resolved dynamically from the secret name `hydrosat/<env>/grafana-cloud` unless an override variable is configured
+- in the GitHub Actions delivery workflow, the ARN is resolved dynamically from the secret name `sight-poc/<env>/grafana-cloud` unless an override variable is configured
 
 Commit and push the sync if it changed tracked files:
 
@@ -78,7 +78,7 @@ git push
 ## 3. Refresh Cluster Access
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name hydrosat-dev-eks
+aws eks update-kubeconfig --region us-east-1 --name sight-poc-dev-eks
 kubectl config current-context
 kubectl get nodes -o wide
 kubectl get ns
@@ -93,7 +93,7 @@ If `kubectl` points at an old destroyed cluster endpoint, rerun `aws eks update-
 
 ## 4. Bootstrap Argo CD
 
-Run from the `hydrosat-infra/` repo root:
+Run from the `sight-poc-infra/` repo root:
 
 ```bash
 ./scripts/bootstrap-argocd.sh
@@ -104,7 +104,7 @@ kubectl get applications -n argocd
 Expected result:
 
 - Argo CD pods are `Running`
-- `hydrosat-root` appears in `argocd`
+- `sight-poc-root` appears in `argocd`
 
 In CI, the same bootstrap already runs as a built-in gated post-apply delivery stage after `Terraform Apply`.
 
@@ -120,7 +120,7 @@ Expected result:
 
 - the cluster is reachable
 - Argo CD core deployments are available
-- `hydrosat-root`, `hydrosat-dagster`, and `hydrosat-alloy` are `Synced / Healthy`
+- `sight-poc-root`, `sight-poc-dagster`, and `sight-poc-alloy` are `Synced / Healthy`
 - External Secrets, Dagster, and Alloy baseline resources exist and are ready
 
 If it fails, use the section outputs to decide whether the issue is:
@@ -149,7 +149,7 @@ kubectl get pods -A
 
 Expected steady-state target:
 
-- `hydrosat-root` is `Synced` and `Healthy`
+- `sight-poc-root` is `Synced` and `Healthy`
 - External Secrets resources are `Ready`
 - Dagster webserver and user-code are running in `dagster`
 - Alloy is running in `monitoring`
@@ -158,20 +158,20 @@ Expected steady-state target:
 
 ```bash
 kubectl get externalsecret -A
-kubectl get secret hydrosat-dagster-db -n dagster
-kubectl get secret hydrosat-grafana-cloud -n monitoring
+kubectl get secret sight-poc-dagster-db -n dagster
+kubectl get secret sight-poc-grafana-cloud -n monitoring
 ```
 
 Expected result:
 
-- `hydrosat-dagster-db` is synced
-- `hydrosat-grafana-cloud` is synced
+- `sight-poc-dagster-db` is synced
+- `sight-poc-grafana-cloud` is synced
 
 If not:
 
 ```bash
-kubectl describe externalsecret hydrosat-dagster-db -n dagster
-kubectl describe externalsecret hydrosat-grafana-cloud -n monitoring
+kubectl describe externalsecret sight-poc-dagster-db -n dagster
+kubectl describe externalsecret sight-poc-grafana-cloud -n monitoring
 ```
 
 Known failure patterns:
@@ -188,8 +188,8 @@ Known failure patterns:
 
 ```bash
 kubectl get jobs,pods,svc -n dagster
-kubectl logs deployment/hydrosat-dagster-webserver -n dagster --tail=100
-kubectl logs deployment/hydrosat-dagster-daemon -n dagster --tail=100
+kubectl logs deployment/sight-poc-dagster-webserver -n dagster --tail=100
+kubectl logs deployment/sight-poc-dagster-daemon -n dagster --tail=100
 ```
 
 Expected result:
@@ -207,23 +207,23 @@ Validated state from the latest bring-up:
 If Dagster stays `OutOfSync / Missing` in Argo CD:
 
 ```bash
-kubectl describe application hydrosat-dagster -n argocd
+kubectl describe application sight-poc-dagster -n argocd
 ```
 
 Known recovery step for a stuck old migration hook:
 
 ```bash
-kubectl patch job hydrosat-dagster-migrate -n dagster --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
-kubectl annotate application hydrosat-dagster -n argocd argocd.argoproj.io/refresh=hard --overwrite
+kubectl patch job sight-poc-dagster-migrate -n dagster --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
+kubectl annotate application sight-poc-dagster -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
 Known Dagster failure patterns:
 
-- the migration job can fail if the DB URL in `hydrosat-dagster-db` is stale
+- the migration job can fail if the DB URL in `sight-poc-dagster-db` is stale
 - force a refresh on the ExternalSecret before retrying the Dagster app:
 
 ```bash
-kubectl annotate externalsecret hydrosat-dagster-db -n dagster force-sync=$(date +%s) --overwrite
+kubectl annotate externalsecret sight-poc-dagster-db -n dagster force-sync=$(date +%s) --overwrite
 ```
 
 - the main scheduling-related risk is reverting below the validated 3-node baseline
@@ -233,7 +233,7 @@ kubectl annotate externalsecret hydrosat-dagster-db -n dagster force-sync=$(date
 ```bash
 kubectl get applications -n argocd
 kubectl get pods -n monitoring
-kubectl get secret hydrosat-grafana-cloud -n monitoring
+kubectl get secret sight-poc-grafana-cloud -n monitoring
 ```
 
 Expected result:
@@ -246,7 +246,7 @@ Expected result:
 Useful spot checks:
 
 ```bash
-kubectl logs -n monitoring -l app.kubernetes.io/instance=hydrosat-alloy --all-containers --tail=200
+kubectl logs -n monitoring -l app.kubernetes.io/instance=sight-poc-alloy --all-containers --tail=200
 kubectl get pods -n dagster
 ```
 
@@ -259,11 +259,11 @@ Coverage expectation after bootstrap:
 Useful LogQL checks:
 
 ```logql
-{cluster="hydrosat-dev-eks", namespace="dagster", source="kubernetes_pod"}
+{cluster="sight-poc-dev-eks", namespace="dagster", source="kubernetes_pod"}
 ```
 
 ```logql
-{cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job"
+{cluster="sight-poc-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "sight_poc_lakehouse_job"
 ```
 
 Validated result from the latest run:
@@ -275,8 +275,8 @@ Validated result from the latest run:
 If you rotate the Grafana Cloud secret value:
 
 ```bash
-kubectl annotate externalsecret hydrosat-grafana-cloud -n monitoring force-sync=$(date +%s) --overwrite
-kubectl rollout restart deployment/hydrosat-alloy -n monitoring
+kubectl annotate externalsecret sight-poc-grafana-cloud -n monitoring force-sync=$(date +%s) --overwrite
+kubectl rollout restart deployment/sight-poc-alloy -n monitoring
 ```
 
 ## 9.1 Grafana Cloud Alerting
@@ -291,7 +291,7 @@ Current implementation:
 
 1. populate `grafana/terraform.tfvars` or GitHub Environment settings with the Grafana URL, service account token, Slack webhook, and Loki data source UID
 2. apply the separate `grafana/` Terraform root or run `Grafana Alerting Delivery`
-3. start with a Dagster log alert on `RUN_FAILURE` for `hydrosat_lakehouse_job`
+3. start with a Dagster log alert on `RUN_FAILURE` for `sight_poc_lakehouse_job`
 4. validate using a controlled Dagster failure
 
 This keeps the cluster simpler while still giving you a credible alerting story for the demo.
@@ -325,7 +325,7 @@ Suggested first Dagster alert rule:
 - query:
 
 ```logql
-sum(count_over_time({cluster="hydrosat-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "hydrosat_lakehouse_job" [5m])) > 0
+sum(count_over_time({cluster="sight-poc-dev-eks", namespace="dagster", app_component="user-code", source="kubernetes_pod"} |= "RUN_FAILURE" |= "sight_poc_lakehouse_job" [5m])) > 0
 ```
 
 Validated result:
@@ -348,7 +348,7 @@ Symptom:
 Fix:
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name hydrosat-dev-eks
+aws eks update-kubeconfig --region us-east-1 --name sight-poc-dev-eks
 ```
 
 ### 9.2 Argo CD CRD annotation size error
@@ -415,7 +415,7 @@ If cluster access still works:
 
 ```bash
 kubectl get svc -A
-kubectl delete svc hydrosat-dagster-webserver -n dagster --ignore-not-found
+kubectl delete svc sight-poc-dagster-webserver -n dagster --ignore-not-found
 ```
 
 Why:
@@ -442,7 +442,7 @@ aws ec2 describe-network-interfaces \
 
 Expected result:
 
-- no classic ELB remains for `hydrosat-dagster-webserver`
+- no classic ELB remains for `sight-poc-dagster-webserver`
 - no ELB ENIs remain in the public subnets
 
 If the cluster is already gone and you still see the ELB, delete it directly:
@@ -456,7 +456,7 @@ aws elb delete-load-balancer --region us-east-1 --load-balancer-name <name>
 Before destroy, empty any versioned buckets managed by Terraform:
 
 ```bash
-BUCKET=hydrosat-dev-data-lake-logs
+BUCKET=sight-poc-dev-data-lake-logs
 
 aws s3api delete-objects \
   --bucket "$BUCKET" \
@@ -465,7 +465,7 @@ aws s3api delete-objects \
 
 If needed, repeat for:
 
-- `hydrosat-dev-data-lake`
+- `sight-poc-dev-data-lake`
 
 Why:
 

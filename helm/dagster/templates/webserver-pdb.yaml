@@ -2,7 +2,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-webserver
+  name: {{ include "sight-poc-dagster.fullname" . }}-webserver
 spec:
   minAvailable: {{ .Values.dagster.webserver.podDisruptionBudget.minAvailable }}
   selector:

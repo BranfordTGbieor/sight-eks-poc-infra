@@ -1,5 +1,5 @@
 aws_region          = "us-east-1"
-project_name        = "hydrosat"
+project_name        = "sight-poc"
 environment         = "dev"
 public_subnet_azs   = ["us-east-1a", "us-east-1b"]
 private_subnet_azs  = ["us-east-1a", "us-east-1b"]
@@ -21,4 +21,4 @@ db_engine_version   = "16"
 db_multi_az         = false
 db_enable_performance_insights = false
 db_enable_enhanced_monitoring = false
-grafana_cloud_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:hydrosat/dev/grafana-cloud-example"
+grafana_cloud_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:sight-poc/dev/grafana-cloud-example"

@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-migrate
+  name: {{ include "sight-poc-dagster.fullname" . }}-migrate
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
@@ -58,7 +58,7 @@ spec:
             - name: DAGSTER_PG_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "hydrosat-dagster.databaseSecretName" . }}
+                  name: {{ include "sight-poc-dagster.databaseSecretName" . }}
                   key: {{ .Values.database.secretKeys.url }}
           resources:
 {{ toYaml .Values.dagster.migrate.resources | indent 12 }}

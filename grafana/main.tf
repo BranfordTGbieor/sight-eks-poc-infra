@@ -3,7 +3,7 @@ resource "grafana_folder" "alerting" {
 }
 
 resource "grafana_contact_point" "exercise_slack" {
-  name               = "Hydrosat Exercise Slack"
+  name               = "Sight PoC Exercise Slack"
   disable_provenance = var.disable_provenance
 
   slack {
@@ -61,7 +61,7 @@ resource "grafana_notification_policy" "root" {
 }
 
 resource "grafana_rule_group" "dagster" {
-  name               = "Hydrosat Dagster Alerts"
+  name               = "Sight PoC Dagster Alerts"
   folder_uid         = grafana_folder.alerting.uid
   interval_seconds   = 60
   disable_provenance = var.disable_provenance

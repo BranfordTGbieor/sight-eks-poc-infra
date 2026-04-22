@@ -51,8 +51,8 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
       GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
-      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
-      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'sight_poc_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Sight PoC Alerting' }}
       GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
       GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
       GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
@@ -113,7 +113,7 @@ jobs:
           grafana_auth = "${GRAFANA_AUTH}"
           slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
           loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
-          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          cluster_name = "sight-poc-${TARGET_ENVIRONMENT}-eks"
           dagster_namespace = "dagster"
           dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
           alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"
@@ -201,8 +201,8 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
       GRAFANA_LOKI_DATASOURCE_UID: ${{ vars.GRAFANA_LOKI_DATASOURCE_UID }}
-      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'hydrosat_lakehouse_job' }}
-      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Hydrosat Alerting' }}
+      GRAFANA_DAGSTER_JOB_NAME: ${{ vars.GRAFANA_DAGSTER_JOB_NAME || 'sight_poc_lakehouse_job' }}
+      GRAFANA_ALERT_FOLDER_TITLE: ${{ vars.GRAFANA_ALERT_FOLDER_TITLE || 'Sight PoC Alerting' }}
       GRAFANA_DISABLE_PROVENANCE: ${{ vars.GRAFANA_DISABLE_PROVENANCE || 'false' }}
       GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
       GRAFANA_SLACK_WEBHOOK_URL: ${{ secrets.GRAFANA_SLACK_WEBHOOK_URL }}
@@ -263,7 +263,7 @@ jobs:
           grafana_auth = "${GRAFANA_AUTH}"
           slack_webhook_url = "${GRAFANA_SLACK_WEBHOOK_URL}"
           loki_datasource_uid = "${GRAFANA_LOKI_DATASOURCE_UID}"
-          cluster_name = "hydrosat-${TARGET_ENVIRONMENT}-eks"
+          cluster_name = "sight-poc-${TARGET_ENVIRONMENT}-eks"
           dagster_namespace = "dagster"
           dagster_job_name = "${GRAFANA_DAGSTER_JOB_NAME}"
           alert_folder_title = "${GRAFANA_ALERT_FOLDER_TITLE}"

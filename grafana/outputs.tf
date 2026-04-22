@@ -1,6 +1,6 @@
 output "alert_folder_uid" {
   value       = grafana_folder.alerting.uid
-  description = "Grafana folder UID for the provisioned Hydrosat alert rules."
+  description = "Grafana folder UID for the provisioned Sight PoC alert rules."
 }
 
 output "contact_point_name" {

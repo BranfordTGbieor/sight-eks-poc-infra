@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name used as the naming prefix."
   type        = string
-  default     = "hydrosat"
+  default     = "sight-poc"
 }
 
 variable "environment" {
@@ -125,13 +125,13 @@ variable "external_secrets_namespace" {
 variable "external_secrets_service_account_name" {
   description = "Service account name used by External Secrets Operator."
   type        = string
-  default     = "hydrosat-external-secrets"
+  default     = "sight-poc-external-secrets"
 }
 
 variable "dagster_service_account_name" {
   description = "Service account name used by Dagster workloads."
   type        = string
-  default     = "hydrosat-dagster"
+  default     = "sight-poc-dagster"
 }
 
 variable "grafana_cloud_secret_arn" {

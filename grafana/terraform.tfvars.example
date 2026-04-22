@@ -9,9 +9,9 @@ slack_webhook_url = "https://hooks.slack.com/services/..."
 # Export or inspect this from Grafana Cloud -> Connections -> Data sources -> Loki.
 loki_datasource_uid = "loki"
 
-cluster_name      = "hydrosat-dev-eks"
+cluster_name      = "sight-poc-dev-eks"
 dagster_namespace = "dagster"
-dagster_job_name  = "hydrosat_lakehouse_job"
+dagster_job_name  = "sight_poc_lakehouse_job"
 
 # Set to true only if you want to keep editing these resources in the UI.
 disable_provenance = false

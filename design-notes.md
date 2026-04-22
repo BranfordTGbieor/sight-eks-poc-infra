@@ -1,6 +1,6 @@
-# Hydrosat Design Notes
+# Sight PoC Design Notes
 
-This document holds the architectural decisions, trade-offs, operational rationale, and production-leaning considerations for the Hydrosat platform.
+This document holds the architectural decisions, trade-offs, operational rationale, and production-leaning considerations for the Sight PoC platform.
 
 Use it alongside:
 
@@ -15,7 +15,7 @@ Use it alongside:
 | Deploy Dagster on EKS | Helm-packaged Dagster webserver, daemon, migration job, and gRPC user-code workload | Implemented and validated |
 | Use PostgreSQL for Dagster metadata | Amazon RDS PostgreSQL with secrets delivered through External Secrets | Implemented and validated |
 | Expose the Dagster UI | Kubernetes `LoadBalancer` service for demo access | Implemented and validated |
-| Run a dummy data pipeline | Split-repo flow with `hydrosat-data` image, sample ingestion, and staged/curated outputs in S3 | Implemented and validated |
+| Run a dummy data pipeline | Split-repo flow with `sight-poc-data` image, sample ingestion, and staged/curated outputs in S3 | Implemented and validated |
 | Monitor and observe the platform | Alloy shipping pod logs, Dagster workload logs, events, and self-metrics to Grafana Cloud | Implemented and validated |
 | Alert on Dagster job failure | Grafana Cloud alerting-as-code with validated Slack delivery on controlled Dagster failure | Implemented and validated |
 | Document architecture and usage | README, runbook, design notes, and repo-native smoke check | Implemented |
@@ -95,7 +95,7 @@ The platform provisions an S3-backed data lake bucket for the Dagster sample pip
 - `staging/satellite_observations/...`
 - `curated/tile_summary/...`
 
-Dagster accesses the bucket through IRSA rather than static AWS credentials. The paired `hydrosat-data` repo uses Python for raw ingestion and dbt-backed DuckDB transforms for staging and curated outputs before publishing them back into S3.
+Dagster accesses the bucket through IRSA rather than static AWS credentials. The paired `sight-poc-data` repo uses Python for raw ingestion and dbt-backed DuckDB transforms for staging and curated outputs before publishing them back into S3.
 
 ### Secret Rotation Lifecycle
 

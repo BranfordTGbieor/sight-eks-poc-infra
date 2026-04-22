@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "hydrosat-dagster.fullname" . }}-config
+  name: {{ include "sight-poc-dagster.fullname" . }}-config
 data:
   dagster.yaml: |
     telemetry:
@@ -27,6 +27,6 @@ data:
   workspace.yaml: |
     load_from:
       - grpc_server:
-          host: {{ include "hydrosat-dagster.fullname" . }}-user-code
+          host: {{ include "sight-poc-dagster.fullname" . }}-user-code
           port: {{ .Values.dagster.grpcPort }}
 
