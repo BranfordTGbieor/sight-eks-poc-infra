@@ -16,10 +16,12 @@ jobs:
       git_ref_tag: ${{ steps.resolve.outputs.git_ref_tag }}
       delivery_enabled: ${{ steps.resolve.outputs.delivery_enabled }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Resolve branch-to-environment mapping
         id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           REF_NAME: ${{ github.ref_name }}
           ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
@@ -27,20 +29,7 @@ jobs:
           TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
         run: |
           branch="${BASE_REF:-$REF_NAME}"
-          case "${branch}" in
-            main)
-              environment_name="dev"
-              ;;
-            tes)
-              environment_name="test"
-              ;;
-            prod)
-              environment_name="prod"
-              ;;
-            *)
-              environment_name="dev"
-              ;;
-          esac
+          eval "$(./scripts/terraform/resolve-environment.sh "${branch}")"
 
           if [ -n "${ROLE_ARN}" ] && [ -n "${TF_STATE_BUCKET}" ] && [ -n "${TF_LOCK_TABLE}" ]; then
             delivery_enabled="true"
@@ -48,7 +37,7 @@ jobs:
             delivery_enabled="false"
           fi
 
-          echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
+          echo "environment_name=${TARGET_ENVIRONMENT}" >> "${GITHUB_OUTPUT}"
           echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
           echo "delivery_enabled=${delivery_enabled}" >> "${GITHUB_OUTPUT}"
 

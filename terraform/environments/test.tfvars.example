@@ -1,18 +1,13 @@
-# Prefer the environment-specific tfvars examples under terraform/environments/.
-# For example:
-#   cp terraform/environments/dev.tfvars.example terraform/environments/dev.tfvars
-# and then run:
-#   ./scripts/terraform/plan-platform.sh dev
 aws_region                        = "us-east-1"
 project_name                      = "sight-poc"
-environment                       = "dev"
+environment                       = "test"
 public_subnet_azs                 = ["us-east-1a", "us-east-1b"]
 private_subnet_azs                = ["us-east-1a", "us-east-1b"]
 cluster_endpoint_private_access   = true
 cluster_endpoint_public_access    = true
 cluster_endpoint_public_access_cidrs = ["203.0.113.10/32"]
-node_desired_size                 = 3
-node_min_size                     = 3
+node_desired_size                 = 2
+node_min_size                     = 2
 node_max_size                     = 3
 enable_service_kms_hardening      = false
 eks_secrets_kms_key_arn           = "arn:aws:kms:us-east-1:123456789012:key/replace-with-eks-key"
@@ -26,4 +21,4 @@ db_engine_version                 = "16"
 db_multi_az                       = false
 db_enable_performance_insights    = false
 db_enable_enhanced_monitoring     = false
-grafana_cloud_secret_arn          = "arn:aws:secretsmanager:us-east-1:123456789012:secret:sight-poc/dev/grafana-cloud-example"
+grafana_cloud_secret_arn          = "arn:aws:secretsmanager:us-east-1:123456789012:secret:sight-poc/test/grafana-cloud-example"

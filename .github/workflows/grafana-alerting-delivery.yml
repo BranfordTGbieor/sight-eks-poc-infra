@@ -15,6 +15,9 @@ jobs:
       environment_name: ${{ steps.resolve.outputs.environment_name }}
       git_ref_tag: ${{ steps.resolve.outputs.git_ref_tag }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Resolve branch-to-environment mapping
         id: resolve
         env:
@@ -22,22 +25,9 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: |
           branch="${BASE_REF:-$REF_NAME}"
-          case "${branch}" in
-            main)
-              environment_name="dev"
-              ;;
-            tes)
-              environment_name="test"
-              ;;
-            prod)
-              environment_name="prod"
-              ;;
-            *)
-              environment_name="dev"
-              ;;
-          esac
+          eval "$(./scripts/terraform/resolve-environment.sh "${branch}")"
 
-          echo "environment_name=${environment_name}" >> "${GITHUB_OUTPUT}"
+          echo "environment_name=${TARGET_ENVIRONMENT}" >> "${GITHUB_OUTPUT}"
           echo "git_ref_tag=${REF_NAME}" >> "${GITHUB_OUTPUT}"
 
   plan:

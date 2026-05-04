@@ -64,27 +64,23 @@ Prerequisites:
 Prepare local Terraform inputs:
 
 ```bash
-cd terraform
-cp backend.hcl.example backend.hcl
-cp terraform.tfvars.example terraform.tfvars
+cp terraform/environments/dev.platform.backend.hcl.example terraform/environments/dev.platform.backend.hcl
+cp terraform/environments/dev.tfvars.example terraform/environments/dev.tfvars
 ```
 
-Example backend config:
+Environment conventions:
 
-```hcl
-bucket         = "sight-poc-<unique-suffix>-tf-state"
-dynamodb_table = "sight-poc-terraform-locks"
-region         = "us-east-1"
-key            = "dev/platform.tfstate"
-encrypt        = true
-```
+- `main` maps to `dev`
+- `tes` maps to `test`
+- `prod` maps to `prod`
+- local helper scripts accept either a branch-style ref (`main`, `tes`, `prod`) or a direct environment (`dev`, `test`, `prod`)
 
 Provision the main platform:
 
 ```bash
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
+./scripts/terraform/init-platform.sh dev
+./scripts/terraform/plan-platform.sh dev
+./scripts/terraform/apply-platform.sh dev
 ```
 
 Refresh cluster access:
@@ -107,8 +103,8 @@ helm template sight-poc-dagster helm/dagster
 Terraform:
 
 ```bash
-terraform init -backend=false
-terraform validate
+./scripts/terraform/check-policies.sh
+./scripts/terraform/validate-platform.sh
 ```
 
 Smoke check:

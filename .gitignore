@@ -24,5 +24,8 @@ terraform.tfstate
 terraform.tfstate.*
 terraform/backend.hcl
 terraform/terraform.tfvars
+terraform/environments/*.tfvars
+terraform/environments/*.platform.backend.hcl
+!terraform/environments/*.example
 terraform/bootstrap/terraform.tfvars
 TODO.md
