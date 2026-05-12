@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - tes
+      - test
       - prod
     paths:
       - ".github/workflows/ci.yml"
@@ -14,6 +14,7 @@ on:
       - "helm/**"
       - "gitops/**"
       - "scripts/**"
+      - "policy/**"
   pull_request:
     paths:
       - ".github/workflows/ci.yml"
@@ -23,6 +24,7 @@ on:
       - "helm/**"
       - "gitops/**"
       - "scripts/**"
+      - "policy/**"
 
 permissions:
   contents: read
@@ -40,6 +42,7 @@ jobs:
       terraform: ${{ steps.filter.outputs.terraform }}
       grafana: ${{ steps.filter.outputs.grafana }}
       helm: ${{ steps.filter.outputs.helm }}
+      policy: ${{ steps.filter.outputs.policy }}
       checkov: ${{ steps.filter.outputs.checkov }}
     steps:
       - name: Checkout
@@ -59,6 +62,11 @@ jobs:
             helm:
               - 'helm/**'
               - 'gitops/**'
+            policy:
+              - 'policy/**'
+              - 'terraform/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/terraform/**'
             checkov:
               - '.checkov.yml'
               - 'terraform/**'
@@ -66,6 +74,7 @@ jobs:
               - 'helm/**'
               - 'gitops/**'
               - 'scripts/**'
+              - 'policy/**'
 
   checks:
     name: Checks
@@ -76,6 +85,7 @@ jobs:
       needs.changes.outputs.terraform == 'true' ||
       needs.changes.outputs.grafana == 'true' ||
       needs.changes.outputs.helm == 'true' ||
+      needs.changes.outputs.policy == 'true' ||
       needs.changes.outputs.checkov == 'true'
     steps:
       - name: Checkout
@@ -89,8 +99,8 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v5
 
-      - name: Terraform policy checks
-        if: needs.changes.outputs.workflow == 'true' || needs.changes.outputs.terraform == 'true' || needs.changes.outputs.checkov == 'true'
+      - name: Policy as Code checks (OPA / Conftest)
+        if: needs.changes.outputs.workflow == 'true' || needs.changes.outputs.terraform == 'true' || needs.changes.outputs.policy == 'true' || needs.changes.outputs.checkov == 'true'
         run: ./scripts/terraform/check-policies.sh
 
       - name: Terraform fmt

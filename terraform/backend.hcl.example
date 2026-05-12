@@ -3,8 +3,8 @@
 #   cp terraform/environments/dev.platform.backend.hcl.example terraform/environments/dev.platform.backend.hcl
 # and then run:
 #   ./scripts/terraform/init-platform.sh dev
-bucket         = "sight-poc-<unique-suffix>-tf-state"
-dynamodb_table = "sight-poc-terraform-locks"
+bucket         = "<project-name>-<unique-suffix>-tf-state"
+dynamodb_table = "<project-name>-terraform-locks"
 region         = "us-east-1"
 key            = "dev/platform.tfstate"
 encrypt        = true

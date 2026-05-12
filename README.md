@@ -31,6 +31,7 @@ This repo owns:
 | Secrets | AWS Secrets Manager + External Secrets |
 | Observability | Grafana Cloud + Alloy |
 | CI/CD | GitHub Actions |
+| Policy as code | OPA / Rego via Conftest |
 
 ## Architecture
 
@@ -61,7 +62,7 @@ Prerequisites:
 | Docker | current stable | [Reference doc to install Docker](https://docs.docker.com/engine/install/) |
 | jq | current stable | [Reference doc to install jq](https://jqlang.org/download/) |
 
-Prepare local Terraform inputs:
+Prepare local Terraform inputs for `dev` only:
 
 ```bash
 cp terraform/environments/dev.platform.backend.hcl.example terraform/environments/dev.platform.backend.hcl
@@ -70,12 +71,11 @@ cp terraform/environments/dev.tfvars.example terraform/environments/dev.tfvars
 
 Environment conventions:
 
-- `main` maps to `dev`
-- `tes` maps to `test`
-- `prod` maps to `prod`
-- local helper scripts accept either a branch-style ref (`main`, `tes`, `prod`) or a direct environment (`dev`, `test`, `prod`)
+- `dev`, `test`, and `prod` are governed delivery environments
+- local helper scripts are intended primarily for `dev`
+- `test` and `prod` are meant to be applied through GitHub Actions delivery workflows rather than routine local Terraform runs
 
-Provision the main platform:
+Provision the local `dev` environment:
 
 ```bash
 ./scripts/terraform/init-platform.sh dev
@@ -136,14 +136,14 @@ Delivery workflows are manual by design:
 Branch mapping for this PoC:
 
 - `main` -> `dev`
-- `tes` -> `test`
+- `test` -> `test`
 - `prod` -> `prod`
 
 GitHub Environments:
 
-- `main` uses the `dev` environment by default
-- `tes` maps to `test`
-- `prod` maps to `prod`
+- `dev` uses the `dev` environment
+- `test` uses the `test` environment
+- `prod` uses the `prod` environment
 
 ## AI Assistance Disclosure
 

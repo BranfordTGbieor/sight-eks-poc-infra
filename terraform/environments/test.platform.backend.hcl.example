@@ -1,5 +1,0 @@
-bucket         = "sight-poc-<unique-suffix>-tf-state"
-dynamodb_table = "sight-poc-terraform-locks"
-region         = "us-east-1"
-key            = "test/platform.tfstate"
-encrypt        = true

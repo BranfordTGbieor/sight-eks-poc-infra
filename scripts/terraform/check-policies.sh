@@ -3,36 +3,22 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
-cd "${repo_root}"
+policy_input="/tmp/sight-poc-infra-policy-input.json"
 
-fail() {
-  echo "Policy check failed: $1" >&2
-  exit 1
+python3 "${script_dir}/render_policy_input.py" > "${policy_input}"
+
+cleanup() {
+  rm -f "${policy_input}"
 }
+trap cleanup EXIT
 
-for env in dev test prod; do
-  tfvars_example="terraform/environments/${env}.tfvars.example"
-  backend_example="terraform/environments/${env}.platform.backend.hcl.example"
-
-  [ -f "${tfvars_example}" ] || fail "Missing ${tfvars_example}"
-  [ -f "${backend_example}" ] || fail "Missing ${backend_example}"
-
-  grep -Eq "^environment[[:space:]]*=[[:space:]]*\"${env}\"$" "${tfvars_example}" || \
-    fail "${tfvars_example} must declare environment = \"${env}\""
-
-  grep -Eq "^key[[:space:]]*=[[:space:]]*\"${env}/platform\.tfstate\"$" "${backend_example}" || \
-    fail "${backend_example} must use key = \"${env}/platform.tfstate\""
-done
-
-for workflow in \
-  .github/workflows/ci.yml \
-  .github/workflows/terraform-delivery.yml \
-  .github/workflows/grafana-alerting-delivery.yml; do
-  grep -Fq './scripts/terraform/resolve-environment.sh' "${workflow}" || \
-    fail "${workflow} must use scripts/terraform/resolve-environment.sh for environment mapping"
-done
-
-tracked_files="$(git ls-files terraform gitops helm/dagster/values-gitops.yaml scripts | grep -Ev '\.example$' || true)"
-if [ -n "${tracked_files}" ] && grep -En '\b[0-9]{12}\b' ${tracked_files} 2>/dev/null; then
-  fail "Committed config still contains a hardcoded 12-digit account ID"
+if command -v conftest >/dev/null 2>&1; then
+  conftest test --policy "${repo_root}/policy" --parser json "${policy_input}"
+else
+  docker run --rm \
+    -v "${repo_root}":/project \
+    -v /tmp:/tmp \
+    -w /project \
+    openpolicyagent/conftest:v0.58.0 \
+    test --policy /project/policy --parser json /tmp/$(basename "${policy_input}")
 fi

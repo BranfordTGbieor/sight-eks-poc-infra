@@ -15,23 +15,23 @@ resolve_environment() {
     elif git -C "${repo_root}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       ref="$(git -C "${repo_root}" rev-parse --abbrev-ref HEAD)"
     else
-      echo "Unable to infer environment. Pass one of: main, tes, prod, dev, test, prod." >&2
+      echo "Unable to infer environment. Pass one of: main, test, prod." >&2
       return 1
     fi
   fi
 
   case "${ref}" in
-    main|dev)
+    main)
       printf 'dev\n'
       ;;
-    tes|test)
+    test)
       printf 'test\n'
       ;;
     prod)
       printf 'prod\n'
       ;;
     *)
-      echo "Unsupported environment or branch: ${ref}. Use main, tes, prod, dev, test, or prod." >&2
+      echo "Unsupported environment or branch: ${ref}. Use main, test, or prod." >&2
       return 1
       ;;
   esac
