@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# Poll Argo CD until the root app is synced and the child applications are present.
+
 TIMEOUT_SECONDS="${WAIT_FOR_APPS_TIMEOUT_SECONDS:-600}"
 POLL_SECONDS="${WAIT_FOR_APPS_POLL_SECONDS:-10}"
 START_TIME="$(date +%s)"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Emit shell-ready environment variables derived from the governed branch mapping.
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/terraform/common.sh
 source "${script_dir}/common.sh"

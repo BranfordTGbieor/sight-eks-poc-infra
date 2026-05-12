@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Update the promoted Dagster image reference in the GitOps values file."""
 from __future__ import annotations
 
 import os
@@ -9,6 +10,7 @@ VALUES_PATH = Path(__file__).resolve().parent.parent / "helm" / "dagster" / "val
 
 
 def replace_line(content: str, prefix: str, value: str) -> str:
+    """Replace a single prefixed YAML line while preserving the rest of the file."""
     for line in content.splitlines():
         if line.startswith(prefix):
             break
@@ -25,6 +27,7 @@ def replace_line(content: str, prefix: str, value: str) -> str:
 
 
 def main() -> None:
+    """Apply the CI-provided image repository and tag to values-gitops.yaml."""
     image_repository = os.environ["IMAGE_REPOSITORY"]
     image_tag = os.environ["IMAGE_TAG"]
 

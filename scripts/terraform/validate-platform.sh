@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Run the basic Terraform hygiene checks used before plan or apply.
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/terraform/common.sh
 source "${script_dir}/common.sh"

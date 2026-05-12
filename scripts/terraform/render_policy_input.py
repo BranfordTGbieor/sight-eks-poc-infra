@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Build the structured JSON input consumed by the repo's Conftest policies."""
 from __future__ import annotations
 
 import json
@@ -8,7 +9,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCAL_ENV_EXAMPLES = ["dev"]
-WORKFLOW_ENVS = ["main", "test", "prod"]
 ALLOWED_REGION = "us-east-1"
 DEV_COST_ALLOWED_DB_CLASSES = {
     "db.t3.micro",
@@ -32,28 +32,34 @@ DEFAULT_STRING_PATTERN = re.compile(r'default\s*=\s*"([^"]+)"')
 
 
 def read_text(path: Path) -> str:
+    """Read UTF-8 text from a repo-relative path."""
     return path.read_text(encoding="utf-8")
 
 
 def git_tracked_files(*paths: str) -> list[str]:
+    """Return tracked files beneath the provided repo-relative paths."""
     cmd = ["git", "ls-files", *paths]
     output = subprocess.check_output(cmd, cwd=REPO_ROOT, text=True)
     return [line for line in output.splitlines() if line]
 
 
 def parse_string_settings(text: str) -> dict[str, str]:
+    """Parse top-level Terraform string assignments from an example file."""
     return {match.group("key"): match.group("value") for match in STRING_SETTING_PATTERN.finditer(text)}
 
 
 def parse_number_settings(text: str) -> dict[str, int]:
+    """Parse top-level Terraform numeric assignments from an example file."""
     return {match.group("key"): int(match.group("value")) for match in NUMBER_SETTING_PATTERN.finditer(text)}
 
 
 def parse_bool_settings(text: str) -> dict[str, bool]:
+    """Parse top-level Terraform boolean assignments from an example file."""
     return {match.group("key"): match.group("value") == "true" for match in BOOL_SETTING_PATTERN.finditer(text)}
 
 
 def collect_environment_examples() -> list[dict[str, str]]:
+    """Collect existence and declared environment data for local tfvars examples."""
     items: list[dict[str, str]] = []
     for env in LOCAL_ENV_EXAMPLES:
         path = REPO_ROOT / "terraform" / "environments" / f"{env}.tfvars.example"
@@ -73,6 +79,7 @@ def collect_environment_examples() -> list[dict[str, str]]:
 
 
 def collect_backend_examples() -> list[dict[str, str]]:
+    """Collect existence, state key, and region data for backend examples."""
     items: list[dict[str, str]] = []
     for env in LOCAL_ENV_EXAMPLES:
         path = REPO_ROOT / "terraform" / "environments" / f"{env}.platform.backend.hcl.example"
@@ -97,6 +104,7 @@ def collect_backend_examples() -> list[dict[str, str]]:
 
 
 def collect_workflow_resolvers() -> list[dict[str, object]]:
+    """Verify that relevant workflows reuse the shared environment resolver."""
     workflow_paths = [
         ".github/workflows/ci.yml",
         ".github/workflows/terraform-delivery.yml",
@@ -115,6 +123,7 @@ def collect_workflow_resolvers() -> list[dict[str, object]]:
 
 
 def collect_ci_push_branches() -> list[str]:
+    """Extract the branch list declared under the CI workflow's push trigger."""
     text = read_text(REPO_ROOT / ".github/workflows/ci.yml")
     match = PUSH_BRANCHES_PATTERN.search(text)
     if not match:
@@ -124,6 +133,7 @@ def collect_ci_push_branches() -> list[str]:
 
 
 def collect_account_id_hits() -> list[dict[str, object]]:
+    """Find hardcoded AWS account IDs in tracked, non-example config files."""
     tracked_paths = [
         path
         for path in git_tracked_files("terraform", "gitops", "helm/dagster/values-gitops.yaml")
@@ -139,6 +149,7 @@ def collect_account_id_hits() -> list[dict[str, object]]:
 
 
 def collect_example_account_id_hits() -> list[dict[str, object]]:
+    """Find hardcoded AWS account IDs in developer-facing example files."""
     example_paths = [
         "terraform/terraform.tfvars.example",
         "terraform/environments/dev.tfvars.example",
@@ -157,6 +168,7 @@ def collect_example_account_id_hits() -> list[dict[str, object]]:
 
 
 def collect_region_examples() -> list[dict[str, str]]:
+    """Collect region declarations from variables and example files."""
     items: list[dict[str, str]] = []
     example_paths = [
         "terraform/variables.tf",
@@ -188,6 +200,7 @@ def collect_region_examples() -> list[dict[str, str]]:
 
 
 def collect_dev_cost_examples() -> list[dict[str, object]]:
+    """Collect the dev-only cost-sensitive settings from example tfvars files."""
     items: list[dict[str, object]] = []
     example_paths = [
         "terraform/terraform.tfvars.example",
@@ -217,6 +230,7 @@ def collect_dev_cost_examples() -> list[dict[str, object]]:
 
 
 def collect_tag_contract() -> dict[str, object]:
+    """Check that the Terraform root defines the common tag contract."""
     text = read_text(REPO_ROOT / "terraform/main.tf")
     return {
         "has_project_tag": 'Project     = var.project_name' in text,
@@ -232,7 +246,6 @@ payload = {
     "allowed_dev_db_classes": sorted(DEV_COST_ALLOWED_DB_CLASSES),
     "max_dev_node_count": MAX_DEV_NODE_COUNT,
     "local_environment_examples": LOCAL_ENV_EXAMPLES,
-    "workflow_environments": WORKFLOW_ENVS,
     "environment_examples": collect_environment_examples(),
     "backend_examples": collect_backend_examples(),
     "workflow_environment_resolvers": collect_workflow_resolvers(),

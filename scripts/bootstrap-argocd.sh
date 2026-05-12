@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# Install Argo CD and seed the root application that fans out the rest of GitOps.
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -

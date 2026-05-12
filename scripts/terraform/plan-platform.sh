@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Plan the platform Terraform root using the selected environment backend and tfvars files.
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/terraform/common.sh
 source "${script_dir}/common.sh"

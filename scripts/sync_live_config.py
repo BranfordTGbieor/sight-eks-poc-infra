@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Render GitOps and Helm inputs from the current Terraform state.
+
+This script keeps live, environment-specific values out of source control by
+rebuilding the Argo CD, External Secrets, Alloy, and Helm inputs from
+Terraform outputs plus a small set of CI-provided environment variables.
+"""
 from __future__ import annotations
 
 import json
@@ -16,6 +22,7 @@ GRAFANA_CLOUD_SECRET_ARN = os.getenv("GRAFANA_CLOUD_SECRET_ARN")
 
 
 def terraform_outputs() -> dict[str, object]:
+    """Return Terraform outputs as a flat key/value mapping."""
     result = subprocess.run(
         ["terraform", f"-chdir={TF_DIR}", "output", "-json"],
         check=True,
@@ -27,11 +34,13 @@ def terraform_outputs() -> dict[str, object]:
 
 
 def write_file(relative_path: str, content: str) -> None:
+    """Write normalized UTF-8 content beneath the repo root."""
     path = ROOT_DIR / relative_path
     path.write_text(f"{content.rstrip()}\n", encoding="utf-8")
 
 
 def main() -> None:
+    """Materialize all live GitOps inputs required for bootstrap and sync."""
     if not GRAFANA_CLOUD_SECRET_ARN:
         raise SystemExit(
             "Set GRAFANA_CLOUD_SECRET_ARN to the AWS Secrets Manager ARN for Grafana Cloud observability credentials."
@@ -519,25 +528,18 @@ image:
   repository: docker.io/gbieor/sight-poc-data
   tag: v0.2.4
 
+postgresqlSecretName: sight-poc-dagster-db
+
+postgresql:
+  host: {rds_address}
+  port: 5432
+  db: dagster
+
 dataLake:
   bucket: {data_lake_bucket}
   prefix: sight-poc
-
-alerting:
-  alertmanagerUrl: ""
-
-database:
-  host: {rds_address}
-  port: 5432
-  name: dagster
-  username: dagster
-  secretName: sight-poc-dagster-db
-  createSecret: false
 """,
     )
-
-    print("Updated live GitOps config from Terraform outputs.")
-    print("Review the diff, then commit before bootstrapping Argo CD.")
 
 
 if __name__ == "__main__":

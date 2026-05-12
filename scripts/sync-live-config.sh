@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Resolve the Git revision metadata expected by the Python renderer, then delegate.
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ -z "${INFRA_REPO_URL:-}" ]]; then

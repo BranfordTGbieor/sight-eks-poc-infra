@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Render structured repo state for Conftest, then evaluate the Rego policy set.
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 policy_input="/tmp/sight-poc-infra-policy-input.json"
@@ -12,6 +14,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Prefer a local Conftest binary, but fall back to a pinned container in CI or fresh shells.
 if command -v conftest >/dev/null 2>&1; then
   conftest test --policy "${repo_root}/policy" --parser json "${policy_input}"
 else

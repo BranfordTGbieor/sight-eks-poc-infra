@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Shared path helpers and environment resolution for local Terraform wrappers.
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 terraform_root="${repo_root}/terraform"
 environment_dir="${terraform_root}/environments"
 
+# Map governed Git branches to the deployment environment names used by Terraform.
 resolve_environment() {
   local ref="${1:-}"
 
@@ -37,6 +40,7 @@ resolve_environment() {
   esac
 }
 
+# Fail fast with a targeted instruction when a required local file is missing.
 require_file() {
   local path="$1"
   local help_message="$2"

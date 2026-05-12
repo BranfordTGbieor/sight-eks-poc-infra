@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+# Run a lightweight post-deploy verification pass across Argo CD, secrets, workloads, and monitoring.
+
 failures=0
 WAIT_TIMEOUT="${SMOKE_WAIT_TIMEOUT_SECONDS:-10s}"
 ROLLOUT_WAIT_TIMEOUT="${SMOKE_ROLLOUT_WAIT_TIMEOUT:-300s}"
@@ -32,6 +34,7 @@ check() {
   fi
 }
 
+# Retry checks that depend on controller reconciliation rather than immediate resource presence.
 wait_for_check() {
   local description="$1"
   shift
